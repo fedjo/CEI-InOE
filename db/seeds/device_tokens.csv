@@ -1,0 +1,21 @@
+name,device_id,client,alias,device_token
+eastron_sdm630_9372,68f1fb6550bcae000b4c2501,Blue Farm Dairy,DB-Fan Main,ed1d7e26-6a18-40dc-bd45-d15db29e895a
+eastron_sdm630_9578,68f1fb6546b86e0009bf15bc,Blue Farm Dairy,DB-G Fridge Compressor 1,93f3263f-b671-4c1d-ab05-5eca131a95d3
+eastron_sdm630_9619,68f1fb65640d9e000b79873b,Blue Farm Dairy,DB-G Fridge Compressor 2,4266e7ce-6652-4abf-8d66-74d6f867d6b8
+eastron_sdm630_9672,68f1fb6546b86e0009bf15bb,Blue Farm Dairy,DB-G Fridge Milk Agitator,3cd40230-bd67-4dac-a248-40818804b22a
+eastron_sdm630_9709,68f1fb651a7bea0010b823c3,Blue Farm Dairy,DB-G Milking Units 1,aa3f997b-8e46-47b1-aa22-f0aeb3c17ecd
+eastron_sdm630_9616,68f1fb650def81000a44a0a7,Blue Farm Dairy,DB-G Milking Units 2,c130f9db-8d9e-4b60-9500-cdbba24bf045
+eastron_sdm630_6617,68f1fb6521551f000a728daa,Blue Farm Dairy,DB-G Ventilation Fans 1,5fe20d8e-f2d3-49ef-b45c-188891fc2b90
+eastron_sdm630_9658,68fbe8f594138e000a6e9260,LK Dairy Farm,DB-Fridge Compressor Atlas,0b834134-5935-471f-a690-45cce4704cf9
+eastron_sdm630_9344,68fbe8f5374f09000ac4bbe1,LK Dairy Farm,DB-Fridge Fridge,7a6fd627-8714-4a46-acb1-95f03d8cca25
+eastron_sdm630_9633,68fbe8f576b75a000ae1d4dd,LK Dairy Farm,DB-Fridge Hot Water,30068623-3d00-40c1-a562-682840b6c0c4
+eastron_sdm630_6524,6902200ea4feb40009ef39b8,LK Dairy Farm,Engine Room - Hot Water,037aa09e-13eb-4468-aa5a-f5950119b5cd
+eastron_sdm630_6759,68fbe8f56fe6f1000adeffcc,LK Dairy Farm,MDB-Milos Main,559daad0-f134-4763-a0a7-8a91c201c1b9
+eastron_sdm630_9782,68fbe8f5eb5462000945a324,LK Dairy Farm,SMDB-1 Milk Processing Facilities 1,e0b40cee-117e-4150-bc73-08f72d222717
+eastron_sdm630_6756,68fbed1b76b75a000ae2401a,LK Dairy Farm,SMDB-1 Milk Processing Facilities 2,32c44a1f-b1bb-4f28-bd81-6ac2dde274b8
+eastron_sdm630_6927,68fbe8f50ad75e000a4d2158,LK Dairy Farm,SMDB-1 Ventilation Fans,c8d679bd-42ee-4c77-94e9-cfd74edcb546
+eastron_sdm630_9714,691adf8f784b85000bb26f55,Charalambides Embio Factory,1,c7ef78fc-f9b3-47c8-b934-0659de04cfa1
+eastron_sdm630_9777,691adf8f650a860009bd0a23,Charalambides Embio Factory,2,6187b708-5af8-48f0-b85f-a4f32c22b311
+eastron_sdm630_9447,691adf8f17835e000a96a913,Charalambides Embio Factory,3,b41d4036-9cc4-40b5-9295-603f6145f1e0
+eastron_sdm630_9624,691adf8fb38f670010e05dc6,Charalambides Embio Factory,4,34370fef-79c8-4cc5-a7b0-f979b7063e43
+eastron_sdm630_6860,691adf8fd67d2b000a121c82,Charalambides Embio Factory,5,3026c383-adc3-4461-8ff4-c2363d95ae9e
