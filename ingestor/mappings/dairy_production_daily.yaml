@@ -1,0 +1,25 @@
+dataset: dairy_production_daily
+granularity: daily
+
+columns:
+  "date": production_date
+  "Day production/cow (kg)": day_production_per_cow_kg
+  "Nr. animals": number_of_animals
+  "Average lactation days": average_lactation_days
+  "Fed per cow (kg) - Total": fed_per_cow_total_kg
+  "Fed per cow (kg) - Water": fed_per_cow_water_kg
+  "Feed efficiency": feed_efficiency
+  "Rumination minutes": rumination_minutes
+
+coercions:
+  production_date: date
+  day_production_per_cow_kg: float
+  number_of_animals: int
+  average_lactation_days: int
+  fed_per_cow_total_kg: float
+  fed_per_cow_water_kg: float
+  feed_efficiency: float
+  rumination_minutes: int
+
+primary_key:
+  - production_date

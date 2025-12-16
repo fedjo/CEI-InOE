@@ -1,0 +1,14 @@
+dataset: energy_hourly
+granularity: hourly
+
+columns:
+  "Date and Time": ts
+  "Hourly": energy_kwh
+
+coercions:
+  ts: datetime
+  energy_kwh: float
+
+primary_key:
+  - device_id
+  - ts

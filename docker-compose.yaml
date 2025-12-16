@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ocei
+      POSTGRES_USER: ocei
+      POSTGRES_PASSWORD: ocei
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  flyway:
+    image: flyway/flyway:10
+    command: migrate
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/ocei
+      FLYWAY_USER: ocei
+      FLYWAY_PASSWORD: ocei
+    volumes:
+      - ./db/migrations:/flyway/sql
+    depends_on:
+      - postgres
+
+  device-seed:
+    image: postgres:16
+    depends_on:
+      - flyway
+      - postgres
+    volumes:
+      - ./db/seeds:/db/seeds
+    environment:
+      PGPASSWORD: ocei
+    entrypoint: >
+      sh -c "
+      psql -h postgres -U ocei -d ocei
+      -c \"\\copy device(device_name, device_id, client, alias, device_token)
+           FROM '/db/seeds/device_tokens.csv' CSV HEADER;\"
+      "
+
+  ingestor:
+    build: ./ingestor
+    environment:
+      DB_DSN: postgres://ocei:ocei@postgres:5432/ocei
+    volumes:
+      - ./data:/data
+    depends_on:
+      - device-seed
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
