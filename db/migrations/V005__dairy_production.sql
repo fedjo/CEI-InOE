@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS dairy_production (
     rumination_minutes INTEGER,
     source_file UUID REFERENCES ingest_file(file_id),
     ingested_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(device_id, production_date)
+    UNIQUE(production_date)
 );
 
 CREATE INDEX idx_dairy_production_date ON dairy_production(production_date);

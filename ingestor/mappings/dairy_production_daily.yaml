@@ -2,7 +2,7 @@ dataset: dairy_production_daily
 granularity: daily
 
 columns:
-  "date": production_date
+  "Date": production_date
   "Day production/cow (kg)": day_production_per_cow_kg
   "Nr. animals": number_of_animals
   "Average lactation days": average_lactation_days
