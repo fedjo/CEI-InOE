@@ -1,0 +1,38 @@
+dataset: energy_hourly
+granularity: hourly
+
+columns:
+  "Date and Time": ts
+  "Hourly": energy_kwh
+
+coercions:
+  ts: datetime
+  energy_kwh: float
+
+primary_key:
+  - device_id
+  - ts
+# Validation Rules (Phase 1 Refactoring)
+validation_rules:
+  schema:
+    required:
+      - ts
+      - energy_kwh
+  
+  constraints:
+    energy_kwh:
+      min: 0
+      max: 10000
+
+# Conflict Resolution Strategy
+conflict_resolution:
+  strategy: update
+  on_columns:
+    - device_id
+    - ts
+  update_columns:
+    - energy_kwh
+
+# Target Configuration
+target_table: energy_hourly
+staging_table: staging_energy_hourly
