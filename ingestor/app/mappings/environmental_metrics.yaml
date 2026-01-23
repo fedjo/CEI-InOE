@@ -42,9 +42,9 @@ validation_rules:
     humidity:
       min: 0
       max: 100
-    atm_pressure:
-      min: 800
-      max: 1100
+    # atm_pressure:
+    #   min: 800
+    #   max: 1100
     pm10:
       min: 0
       max: 1000

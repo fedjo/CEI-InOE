@@ -30,5 +30,5 @@ conflict_resolution:
     - energy_kwh
 
 # Target Configuration
-target_table: energy_daily
+target_table: fact_energy_daily
 staging_table: staging_energy_daily

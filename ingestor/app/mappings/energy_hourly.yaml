@@ -34,5 +34,5 @@ conflict_resolution:
     - energy_kwh
 
 # Target Configuration
-target_table: energy_hourly
+target_table: fact_energy_hourly
 staging_table: staging_energy_hourly

@@ -1,4 +1,4 @@
-dataset: dairy_production_daily
+dataset: dairy_production
 granularity: daily
 
 columns:
