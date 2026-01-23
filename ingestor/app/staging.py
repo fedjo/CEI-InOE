@@ -3,18 +3,38 @@ Staging Module
 Handles staging table operations before loading to final warehouse tables.
 """
 
-from typing import Dict, List, Any, Optional
 import json
+import math
 import logging
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
 
+def sanitize_for_json(obj):
+    """
+    Recursively sanitize an object for JSON serialization.
+    Converts NaN, Inf, -Inf to None.
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    elif obj is None:
+        return None
+    else:
+        return obj
+
+
 class StagingManager:
     """Manages staging table operations."""
-    
+
     # Mapping of datasets to staging tables
     STAGING_TABLES = {
         'environmental_metrics': 'staging_environmental_metrics',
@@ -33,25 +53,15 @@ class StagingManager:
         """
         self.connection = connection
         self.dataset = dataset
-        self.staging_table = self.STAGING_TABLES.get(dataset)
-        
-        if not self.staging_table:
+        if dataset not in self.STAGING_TABLES:
             raise ValueError(f"No staging table configured for dataset: {dataset}")
+        self.staging_table = self.STAGING_TABLES[dataset]
     
     def insert_raw(self, file_id: UUID, row_number: int, 
                    raw_data: Dict[str, Any]) -> int:
-        """
-        Insert raw data into staging table.
-        
-        Args:
-            file_id: Source file UUID
-            row_number: Row number in source file
-            raw_data: Original CSV/API data
-        
-        Returns:
-            staging_id of inserted record
-        """
-        cursor = self.connection.cursor()
+        """Insert raw record into staging table."""
+        # Sanitize data to remove NaN/Inf values before JSON serialization
+        sanitized_data = sanitize_for_json(raw_data)
         
         sql = f"""
             INSERT INTO {self.staging_table} 
@@ -59,15 +69,14 @@ class StagingManager:
             VALUES (%s, %s, %s, NOW())
             RETURNING staging_id
         """
-        
-        cursor.execute(sql, (
-            str(file_id),
-            row_number,
-            json.dumps(raw_data)
-        ))
-        
-        staging_id = cursor.fetchone()[0]
-        return staging_id
+        with self.connection.cursor() as cursor:
+            cursor.execute(sql, (
+                str(file_id),
+                row_number,
+                json.dumps(sanitized_data)
+            ))
+            result = cursor.fetchone()
+            return result[0] if result else None
     
     def update_validation(self, staging_id: int, 
                          validation_result: Any,
@@ -90,18 +99,18 @@ class StagingManager:
                 transformed_data = %s
             WHERE staging_id = %s
         """
-        
+
         cursor.execute(sql, (
             json.dumps(validation_result.to_dict()) if validation_result else None,
             validation_result.is_valid if validation_result else False,
             json.dumps(transformed_data, default=str) if transformed_data else None,
             staging_id
         ))
-    
+
     def get_valid_records(self, file_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
         """
         Retrieve valid records ready for loading.
-        
+
         Args:
             file_id: Optional file filter
         
@@ -109,11 +118,11 @@ class StagingManager:
             List of valid transformed records
         """
         cursor = self.connection.cursor()
-        
+
         sql = f"""
             SELECT staging_id, transformed_data
             FROM {self.staging_table}
-            WHERE is_valid = TRUE 
+            WHERE is_valid = TRUE
               AND loaded_to_final = FALSE
         """
         
@@ -129,10 +138,10 @@ class StagingManager:
         records = []
         for row in cursor.fetchall():
             staging_id, transformed_data = row
-            record = json.loads(transformed_data) if transformed_data else {}
+            record = transformed_data if transformed_data else {}
             record['_staging_id'] = staging_id
             records.append(record)
-        
+
         return records
     
     def get_invalid_records(self, file_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
@@ -143,13 +152,13 @@ class StagingManager:
             List of invalid records with errors
         """
         cursor = self.connection.cursor()
-        
+
         sql = f"""
             SELECT staging_id, row_number, raw_data, validation_errors
             FROM {self.staging_table}
             WHERE is_valid = FALSE
         """
-        
+
         params = []
         if file_id:
             sql += " AND file_id = %s"
@@ -165,10 +174,10 @@ class StagingManager:
             records.append({
                 'staging_id': staging_id,
                 'row_number': row_number,
-                'raw_data': json.loads(raw_data) if raw_data else {},
-                'validation_errors': json.loads(validation_errors) if validation_errors else {}
+                'raw_data': raw_data if raw_data else {},
+                'validation_errors': validation_errors if validation_errors else {}
             })
-        
+
         return records
     
     def mark_loaded(self, staging_ids: List[int]):
@@ -328,6 +337,10 @@ class ConflictResolver:
         """
         # Remove internal fields
         record = {k: v for k, v in record.items() if not k.startswith('_')}
+
+        # Add device_id if for energy datasets
+        if 'device_id' in self.on_columns and 'device_id' not in record:
+            record['device_id'] = record.get('device_id', None)
         
         columns = list(record.keys())
         values = [record[col] for col in columns]

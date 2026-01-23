@@ -16,6 +16,15 @@ from threading import Thread
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+    stream=sys.stdout
+)
+
+logger = logging.getLogger(__name__)
+
 # Add parent directory to path for api_fetcher imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -26,10 +35,10 @@ try:
     from app.transformation import DataTransformer, LegacyTransformationAdapter
     from app.staging import StagingManager
     PIPELINE_ENABLED = True
-    logging.info("✓ New pipeline modules loaded successfully")
+    logger.info("✓ New pipeline modules loaded successfully")
 except ImportError as e:
     PIPELINE_ENABLED = False
-    logging.warning(f"Pipeline modules not available, using legacy mode: {e}")
+    logger.warning(f"Pipeline modules not available, using legacy mode: {e}")
 
 WATCH_DIR = "/data/incoming"
 PROCESSED_DIR = "/data/processed"
@@ -38,8 +47,6 @@ MAPPINGS_DIR = "/app/mappings"
 
 POLL_INTERVAL = 10
 STABLE_SECONDS = 3
-
-logging.basicConfig(level=logging.INFO)
 
 # ============================================================================
 # Connection Management
@@ -86,7 +93,7 @@ def parse_csv_filename(fname: str) -> Tuple[str, Any, Any]:
             start_date = datetime.strptime(match.group(3), '%d%m%Y').date()
             end_date = datetime.strptime(match.group(4), '%d%m%Y').date()
             return device_id, start_date, end_date
-        
+
         # Old format: metrics_1236_10122025_18122025.csv
         parts = fname.replace('.csv', '').split('_')
         if len(parts) >= 4:
@@ -97,9 +104,9 @@ def parse_csv_filename(fname: str) -> Tuple[str, Any, Any]:
                 return device_id, start_date, end_date
             except (ValueError, IndexError):
                 pass
-    
+
     except Exception as e:
-        logging.warning(f"Error parsing filename {fname}: {e}")
+        logger.warning(f"Error parsing filename {fname}: {e}")
     
     return "unknown", None, None
 
@@ -135,7 +142,7 @@ def detect_dataset_type(df: pd.DataFrame, fname: str) -> str:
 
     # Check for dairy production indicators
     if any('production' in col for col in columns_lower):
-        return f"{MAPPINGS_DIR}/dairy_production_daily.yaml"
+        return f"{MAPPINGS_DIR}/dairy_production.yaml"
 
     # Check for environmental metrics (BEFORE energy - more specific)
     if any('pm10' in col or 'temperature' in col or 'humidity' in col for col in columns_lower):
@@ -249,7 +256,7 @@ def transform_row_legacy(row: pd.Series, mapping: Dict[str, Any]) -> Dict[str, A
         try:
             canonical[canonical_col] = coerce(raw_val, target_type)
         except Exception as e:
-            logging.warning(f"Failed to coerce {csv_col}={raw_val} to {target_type}: {e}")
+            logger.warning(f"Failed to coerce {csv_col}={raw_val} to {target_type}: {e}")
             canonical[canonical_col] = None
     
     return canonical
@@ -334,7 +341,7 @@ def check_duplicate(cursor, table: str, primary_key_cols: List[str],
         
         return cursor.fetchone() is not None
     except Exception as e:
-        logging.error(f"Error checking duplicate in {table}: {str(e)}")
+        logger.error(f"Error checking duplicate in {table}: {str(e)}")
         return False
 
 
@@ -357,7 +364,7 @@ def insert_record(cursor, table: str, values: Dict[str, Any],
         return True, None
     except Exception as e:
         error_msg = f"Error inserting into {table}: {str(e)}"
-        logging.error(error_msg)
+        logger.error(error_msg)
         return False, error_msg
 
 
@@ -395,7 +402,7 @@ def log_ingestion(cursor, dataset: str, filename: str,
             (file_id, filename, device_id, granularity, sha)
         )
     except psycopg2.Error as e:
-        logging.error(f"Error logging ingestion: {str(e)}")
+        logger.error(f"Error logger ingestion: {str(e)}")
         raise
     
     return file_id
@@ -434,7 +441,7 @@ def ingest_csv_file(file_path: str, db_connection, table: str,
         # Check for duplicate file
         cursor.execute("SELECT 1 FROM ingest_file WHERE sha256=%s", (sha,))
         if cursor.fetchone():
-            logging.info(f"File already ingested: {filename}")
+            logger.info(f"File already ingested: {filename}")
             return {
                 'dataset': mapping['dataset'],
                 'file': filename,
@@ -477,16 +484,16 @@ def ingest_csv_file(file_path: str, db_connection, table: str,
                         inserted += 1
                     else:
                         errors += 1
-                        logging.error(f"Row {row_num}: {error_msg}")
+                        logger.error(f"Row {row_num}: {error_msg}")
                 
                 except Exception as e:
                     errors += 1
-                    logging.warning(f"Error processing row {row_num}: {str(e)}")
+                    logger.warning(f"Error processing row {row_num}: {str(e)}")
         
         # Commit all inserts
         db_connection.commit()
 
-        logging.info(f"Ingestion complete: {filename} - Inserted: {inserted}, Skipped: {skipped}, Errors: {errors}")
+        logger.info(f"Ingestion complete: {filename} - Inserted: {inserted}, Skipped: {skipped}, Errors: {errors}")
 
         return {
             'dataset': mapping['dataset'],
@@ -501,7 +508,7 @@ def ingest_csv_file(file_path: str, db_connection, table: str,
 
     except Exception as e:
         db_connection.rollback()
-        logging.error(f"Fatal error ingesting {file_path}: {str(e)}")
+        logger.error(f"Fatal error ingesting {file_path}: {str(e)}")
         raise
     finally:
         cursor.close()
@@ -526,7 +533,7 @@ def ingest_dairy_production_modular(file_path: str, db_connection) -> Dict[str, 
         file_path,
         db_connection,
         'dairy_production',
-        f'{MAPPINGS_DIR}/dairy_production_daily.yaml'
+        f'{MAPPINGS_DIR}/dairy_production.yaml'
     )
 
 
@@ -566,13 +573,13 @@ def ingest_file_with_pipeline(file_path: str, mapping_path: str) -> Dict[str, An
         Dictionary with ingestion results
     """
     if not PIPELINE_ENABLED:
-        logging.warning("Pipeline not available, falling back to legacy ingestion")
+        logger.warning("Pipeline not available, falling back to legacy ingestion")
         return {'error': 'Pipeline not enabled'}
     
     fname = os.path.basename(file_path)
     device_id, start_date, end_date = parse_csv_filename(fname)
     sha = file_sha256(file_path)
-    
+
     # Load mapping
     with open(mapping_path) as f:
         mapping = yaml.safe_load(f)
@@ -580,28 +587,42 @@ def ingest_file_with_pipeline(file_path: str, mapping_path: str) -> Dict[str, An
     connection = get_conn()
     
     try:
-        # Check for duplicates
         cursor = connection.cursor()
+        # Get device id pk is exists
+        if device_id:
+            cursor.execute("SELECT id FROM device WHERE device_id = %s", (device_id,))
+            row = cursor.fetchone()
+            if row:
+                device_id = row[0]
+            else:
+                logger.warning(f"Device {device_id} not found")
+
+        # Check for duplicates
         cursor.execute(
             "SELECT file_id FROM ingest_file WHERE sha256 = %s",
             (sha,)
         )
         if cursor.fetchone():
-            logging.info(f"File {fname} already processed (duplicate SHA256)")
+            logger.info(f"File {fname} already processed (duplicate SHA256)")
+            print('File already processed (duplicate SHA256)')
             return {
                 'status': 'skipped',
                 'reason': 'duplicate',
                 'file': fname
             }
-        
+
         # Log file ingestion
         file_id = str(uuid.uuid4())
+        # Extract granularity from filename or use default
+        match = re.search(r'-(hourly|daily)-', fname)
+        granularity = match.group(1) if match else mapping.get('granularity', 'unknown')
+        
         cursor.execute("""
-            INSERT INTO ingest_file 
-                (file_id, dataset, filename, ingestion_date, sha256, pipeline_version)
-            VALUES (%s, %s, %s, NOW(), %s, '2.0')
+            INSERT INTO ingest_file
+                (file_id, file_name, device_id, granularity, start_date, end_date, sha256, pipeline_version)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, '2.0')
             RETURNING file_id
-        """, (file_id, mapping['dataset'], fname, sha))
+        """, (file_id, fname, device_id, granularity, start_date, end_date, sha))
         connection.commit()
         
         # Run pipeline
@@ -617,26 +638,20 @@ def ingest_file_with_pipeline(file_path: str, mapping_path: str) -> Dict[str, An
         cursor.execute("""
             UPDATE ingest_file
             SET 
-                records_inserted = %s,
-                records_skipped = %s,
-                records_with_errors = %s,
                 execution_time_ms = %s,
                 validation_status = %s,
                 quality_score = %s
             WHERE file_id = %s
         """, (
-            metrics.load_records,
-            metrics.skipped_records,
-            metrics.invalid_records,
             int(metrics.total_duration * 1000),
             'passed' if metrics.invalid_records == 0 else 'partial',
-            round((metrics.valid_records / metrics.extract_records * 100) 
+            round((metrics.valid_records / metrics.extract_records * 100)
                   if metrics.extract_records > 0 else 0, 2),
             file_id
         ))
         connection.commit()
         
-        logging.info(
+        logger.info(
             f"✓ Pipeline completed for {fname}: "
             f"{metrics.load_records} loaded, "
             f"{metrics.invalid_records} invalid, "
@@ -652,7 +667,7 @@ def ingest_file_with_pipeline(file_path: str, mapping_path: str) -> Dict[str, An
         }
         
     except Exception as e:
-        logging.error(f"Pipeline failed for {fname}: {e}", exc_info=True)
+        logger.error(f"Pipeline failed for {fname}: {e}", exc_info=True)
         connection.rollback()
         return {
             'status': 'failed',
@@ -675,7 +690,7 @@ def ingest_dairy_production_pipeline(file_path: str) -> Dict[str, Any]:
     """Ingest dairy production using new pipeline."""
     return ingest_file_with_pipeline(
         file_path,
-        f'{MAPPINGS_DIR}/dairy_production_daily.yaml'
+        f'{MAPPINGS_DIR}/dairy_production.yaml'
     )
 
 
@@ -705,7 +720,7 @@ def process_file(path: str):
     Supports dairy_production_daily, energy_hourly, energy_daily, and environmental_metrics datasets.
     """
     fname = os.path.basename(path)
-    logging.info(f"Processing file: {fname}")
+    logger.info(f"Processing file: {fname}")
 
     sha = file_sha256(path)
     file_id = str(uuid.uuid4())
@@ -728,7 +743,7 @@ def process_file(path: str):
             # Extract date range from data
             date_col = "Date"
             if date_col in df.columns:
-                dates = pd.to_datetime(df[date_col], errors='coerce').dropna()
+                dates = pd.to_datetime(df[date_col], format='mixed', errors='coerce').dropna()
                 if len(dates) > 0:
                     start_date = dates.min().date()
                     end_date = dates.max().date()
@@ -751,18 +766,18 @@ def process_file(path: str):
         mapping = load_mapping(dataset_type_path)
         dataset_type = os.path.basename(dataset_type_path).replace('.yaml', '')
 
-        logging.info(f"Detected dataset type: {dataset_type}")
-        logging.info(f"Generated/parsed device_id: {device_id}")
+        logger.info(f"Detected dataset type: {dataset_type}")
+        logger.info(f"Generated/parsed device_id: {device_id}")
 
     except Exception as e:
-        logging.error(f"Failed to read file {fname}: {e}")
+        logger.error(f"Failed to read file {fname}: {e}")
         try:
             os.rename(path, f"{REJECTED_DIR}/{fname}")
         except Exception as rename_error:
-            logging.error(f"Failed to move file to rejected: {rename_error}")
+            logger.error(f"Failed to move file to rejected: {rename_error}")
         return
 
-    logging.info(f"File info - device_id: {device_id}, start_date: {start_date}, end_date: {end_date}, dataset: {dataset_type}")
+    logger.info(f"File info - device_id: {device_id}, start_date: {start_date}, end_date: {end_date}, dataset: {dataset_type}")
     
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -770,31 +785,31 @@ def process_file(path: str):
             # File deduplication
             cur.execute("SELECT 1 FROM ingest_file WHERE sha256=%s", (sha,))
             if cur.fetchone():
-                logging.info("File already ingested")
+                logger.info("File already ingested")
                 try:
                     os.rename(path, f"{PROCESSED_DIR}/{fname}")
                 except Exception as rename_error:
-                    logging.error(f"Failed to move file to processed: {rename_error}")
+                    logger.error(f"Failed to move file to processed: {rename_error}")
                 return
 
             # Register file with device_id in ingest_file table
             try:
                 log_ingestion_legacy(cur, file_id, fname, device_id, mapping, start_date, end_date, sha)
             except Exception as e:
-                logging.error(f"Failed to log ingestion: {e}")
+                logger.error(f"Failed to log ingestion: {e}")
                 conn.rollback()
                 return
 
             # Get device.id - SKIP for environmental_metrics
             device_pk_id = None
-            if dataset_type != "environmental_metrics":
+            if dataset_type in ("energy_daily", "energy_hourly"):
                 cur.execute("SELECT id FROM device WHERE device_id=%s", (device_id,))
                 result = cur.fetchone()
                 if result:
                     device_pk_id = result[0]
-                    logging.info(f"Found device with id: {device_pk_id}")
+                    logger.info(f"Found device with id: {device_pk_id}")
                 else:
-                    logging.warning(f"Device {device_id} not found in device table")
+                    logger.warning(f"Device {device_id} not found in device table")
 
             rows = []
 
@@ -846,7 +861,7 @@ def process_file(path: str):
                         ))
                 
                 except Exception as row_error:
-                    logging.warning(f"Error processing row {idx}: {row_error}")
+                    logger.warning(f"Error processing row {idx}: {row_error}")
                     continue
 
             # Insert into appropriate table
@@ -864,19 +879,19 @@ def process_file(path: str):
                     insert_environmental_metrics_batch(cur, rows)
 
                 conn.commit()
-                logging.info(f"Inserted {len(rows)} rows from {fname}")
+                logger.info(f"Inserted {len(rows)} rows from {fname}")
                 
             except Exception as insert_error:
-                logging.error(f"Failed to insert rows: {insert_error}")
+                logger.error(f"Failed to insert rows: {insert_error}")
                 conn.rollback()
                 return
 
     try:
         os.rename(path, f"{PROCESSED_DIR}/{fname}")
     except Exception as rename_error:
-        logging.error(f"Failed to move file to processed: {rename_error}")
+        logger.error(f"Failed to move file to processed: {rename_error}")
     
-    logging.info(f"Finished processing {fname}")
+    logger.info(f"Finished processing {fname}")
 
 # ============================================================================
 # API Fetching Tasks
@@ -897,7 +912,7 @@ def fetch_airbeld_readings():
         fetcher = AirbeldFetcher(db_dsn, api_token)
         yesterday = datetime.now().date() - timedelta(days=1)
         
-        logging.info(f"Fetching Airbeld hourly readings for device {device_id} on {yesterday}")
+        logger.info(f"Fetching Airbeld hourly readings for device {device_id} on {yesterday}")
         
         readings = fetcher.fetch_readings(
             device_id=device_id,
@@ -909,10 +924,10 @@ def fetch_airbeld_readings():
         source_ref = f"airbeld-api-{device_id}-{yesterday.isoformat()}"
         fetcher.save_readings(readings, source_ref)
         
-        logging.info(f"Successfully fetched and saved {len(readings)} Airbeld readings")
+        logger.info(f"Successfully fetched and saved {len(readings)} Airbeld readings")
         
     except Exception as e:
-        logging.error(f"Failed to fetch Airbeld readings: {str(e)}", exc_info=True)
+        logger.error(f"Failed to fetch Airbeld readings: {str(e)}", exc_info=True)
 
 
 def fetch_airbeld_devices():
@@ -928,14 +943,14 @@ def fetch_airbeld_devices():
         
         fetcher = AirbeldFetcher(db_dsn, api_token)
         
-        logging.info("Fetching Airbeld devices")
+        logger.info("Fetching Airbeld devices")
         devices = fetcher.fetch_devices()
         fetcher.save_devices(devices)
         
-        logging.info(f"Successfully fetched and saved {len(devices)} Airbeld devices")
+        logger.info(f"Successfully fetched and saved {len(devices)} Airbeld devices")
         
     except Exception as e:
-        logging.error(f"Failed to fetch Airbeld devices: {str(e)}", exc_info=True)
+        logger.error(f"Failed to fetch Airbeld devices: {str(e)}", exc_info=True)
 
 
 def setup_api_scheduler():
@@ -985,25 +1000,25 @@ def main():
     os.makedirs(PROCESSED_DIR, exist_ok=True)
     os.makedirs(REJECTED_DIR, exist_ok=True)
 
-    logging.info("="*60)
-    logging.info("Starting CEI-InOE Ingestor")
-    logging.info(f"Pipeline Mode: {'NEW (Phase 1)' if PIPELINE_ENABLED else 'LEGACY'}")
-    logging.info(f"File watcher: {WATCH_DIR}")
-    logging.info("="*60)
+    logger.info("="*60)
+    logger.info("Starting CEI-InOE Ingestor")
+    logger.info(f"Pipeline Mode: {'NEW (Phase 1)' if PIPELINE_ENABLED else 'LEGACY'}")
+    logger.info(f"File watcher: {WATCH_DIR}")
+    logger.info("="*60)
     
     # Start API fetching scheduler in background
     try:
         scheduler = setup_api_scheduler()
         scheduler.start()
-        logging.info("API Scheduler started")
-        logging.info("Scheduled jobs:")
+        logger.info("API Scheduler started")
+        logger.info("Scheduled jobs:")
         for job in scheduler.get_jobs():
-            logging.info(f"  - {job.name} (ID: {job.id})")
+            logger.info(f"  - {job.name} (ID: {job.id})")
     except Exception as e:
-        logging.warning(f"Failed to start API scheduler: {e}")
-        logging.info("Continuing with file watching only...")
+        logger.warning(f"Failed to start API scheduler: {e}")
+        logger.info("Continuing with file watching only...")
     
-    logging.info("="*60)
+    logger.info("="*60)
     
     # File watching loop (main thread)
     while True:
@@ -1018,10 +1033,10 @@ def main():
                         else:
                             process_file(path)
                     except Exception as e:
-                        logging.exception(f"Error processing {f}: {e}")
+                        logger.exception(f"Error processing {f}: {e}")
                         os.rename(path, f"{REJECTED_DIR}/{f}")
         except Exception as e:
-            logging.exception(f"Error in main loop: {e}")
+            logger.exception(f"Error in main loop: {e}")
         
         time.sleep(POLL_INTERVAL)
 
@@ -1032,23 +1047,22 @@ def process_file_pipeline(path: str):
     Auto-detects dataset type and routes to appropriate pipeline.
     """
     fname = os.path.basename(path)
-    logging.info(f"[PIPELINE] Processing {fname}")
+    logger.info(f"[PIPELINE] Processing {fname}")
     
     # Detect dataset type from filename patterns
-    if 'hourly' in fname.lower():
+    fname_lower = fname.lower()
+    
+    if 'hourly' in fname_lower:
         result = ingest_energy_hourly_pipeline(path)
-    elif 'daily' in fname.lower():
-        if 'dairy' in fname.lower() or 'production' in fname.lower():
-            result = ingest_dairy_production_pipeline(path)
-        else:
-            result = ingest_energy_daily_pipeline(path)
-    elif 'environmental' in fname.lower() or 'metrics' in fname.lower() or 'airbeld' in fname.lower():
+    elif 'daily' in fname_lower:
+        result = ingest_energy_daily_pipeline(path)
+    elif 'environmental' in fname_lower or 'metrics' in fname_lower or 'airbeld' in fname_lower:
         result = ingest_environmental_metrics_pipeline(path)
-    elif 'dairy' in fname.lower():
+    elif any(keyword in fname_lower for keyword in ['dairy', 'feeding', 'feedtype', 'milk', 'production']):
         result = ingest_dairy_production_pipeline(path)
     else:
         # Try to detect from file content (fallback to legacy)
-        logging.warning(f"Cannot determine dataset type from filename: {fname}, using legacy detection")
+        logger.warning(f"Cannot determine dataset type from filename: {fname}, using legacy detection")
         process_file(path)
         return
     
@@ -1056,17 +1070,17 @@ def process_file_pipeline(path: str):
     if result.get('status') == 'success':
         dest = f"{PROCESSED_DIR}/{fname}"
         os.rename(path, dest)
-        logging.info(f"[PIPELINE] ✓ Moved {fname} → processed/")
+        logger.info(f"[PIPELINE] ✓ Moved {fname} → processed/")
     elif result.get('status') == 'skipped':
         # Still move to processed if duplicate
         dest = f"{PROCESSED_DIR}/{fname}"
         os.rename(path, dest)
-        logging.info(f"[PIPELINE] ⊘ Skipped {fname} (duplicate) → processed/")
+        logger.info(f"[PIPELINE] ⊘ Skipped {fname} (duplicate) → processed/")
     else:
         # Failed - move to rejected
         dest = f"{REJECTED_DIR}/{fname}"
         os.rename(path, dest)
-        logging.error(f"[PIPELINE] ✗ Failed {fname} → rejected/")
+        logger.error(f"[PIPELINE] ✗ Failed {fname} → rejected/")
 
 
 if __name__ == "__main__":

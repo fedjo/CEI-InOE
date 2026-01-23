@@ -72,6 +72,14 @@ logs/
 # Docker
 docker-compose.override.yml
 
+# Data volumes
+data/
+
+# CSV, Excel files
+*.csv
+*.xlsx
+*.xls
+
 # Misc
 *.pem
 *.sqlite3
