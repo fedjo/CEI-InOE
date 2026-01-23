@@ -19,11 +19,11 @@ class TransformationError(Exception):
 
 class DataTransformer:
     """Handles data transformation with type coercion."""
-    
+
     def __init__(self, mapping: Dict[str, Any]):
         """
         Initialize from YAML mapping configuration.
-        
+
         mapping structure:
         {
             'columns': {'csv_col': 'db_col'},
@@ -35,27 +35,27 @@ class DataTransformer:
         self.columns = mapping.get('columns', {})
         self.coercions = mapping.get('coercions', {})
         self.transformations = mapping.get('transformations', [])
-    
-    def transform_record(self, raw_data: Dict[str, Any], 
+
+    def transform_record(self, raw_data: Dict[str, Any],
                         source_context: Dict[str, Any]) -> Dict[str, Any]:
         """
         Transform a single record from source to target format.
-        
+
         Args:
             raw_data: Raw CSV row or API response
             source_context: Context about data source (type, file_id, device_id, etc.)
-        
+
         Returns:
             Transformed record ready for database insertion
         """
         transformed = {}
-        
+
         # Map and coerce data columns
         for source_col, target_col in self.columns.items():
             if source_col in raw_data:
                 raw_value = raw_data[source_col]
                 coercion_type = self.coercions.get(target_col, 'str')
-                
+
                 try:
                     transformed[target_col] = self.coerce_value(raw_value, coercion_type)
                 except Exception as e:
@@ -70,7 +70,7 @@ class DataTransformer:
         
         # Add source metadata
         transformed.update(self._build_source_metadata(source_context))
-        
+
         return transformed
     
     def transform_batch(self, raw_records: List[Dict[str, Any]], 
@@ -97,9 +97,13 @@ class DataTransformer:
             
             elif target_type == 'int':
                 # Handle "123.0" string case
+                if isinstance(value, str):
+                    value = value.strip()
                 return int(float(value))
             
             elif target_type == 'float':
+                if isinstance(value, str):
+                    value = value.replace(",", ".")
                 return float(value)
             
             elif target_type == 'bool':
@@ -118,19 +122,27 @@ class DataTransformer:
                     return value
                 if isinstance(value, pd.Timestamp):
                     return value.to_pydatetime()
+                if isinstance(value, str) and any(token in value.lower() for token in ('am', 'pm')):
+                    return datetime.strptime(value, '%m/%d/%Y %H:%M:%S %p')
                 # Try parsing ISO format
                 return datetime.fromisoformat(str(value))
-            
+
             elif target_type == 'date':
                 if hasattr(value, 'date'):
                     return value.date()
-                return datetime.strptime(str(value), '%Y-%m-%d').date()
-            
+                if isinstance(value, str) and any(token in value.lower() for token in ('am', 'pm')):
+                    # This handles strings with AM/PM read from `CSVReader` objects
+                    # In the future we may want to generalize this further and use `read_csv` parsing
+                    return datetime.strptime(value, '%m/%d/%Y %H:%M:%S %p').date()
+
+                # This handles np.datetime64 and ISO strings from `read_csv` and `read_excel`
+                return datetime.fromisoformat(str(value)).date()
+
             elif target_type == 'time':
                 if hasattr(value, 'time'):
                     return value.time()
-                return datetime.strptime(str(value), '%H:%M:%S').time()
-            
+                return datetime.fromisoformat(str(value)).time()
+
             else:
                 raise TransformationError(f"Unsupported coercion type: {target_type}")
         
@@ -139,7 +151,7 @@ class DataTransformer:
                 f"Cannot coerce '{value}' to {target_type}: {str(e)}"
             )
     
-    def _apply_transformation(self, data: Dict[str, Any], 
+    def _apply_transformation(self, data: Dict[str, Any],
                             transformation: Dict[str, Any]) -> Dict[str, Any]:
         """
         Apply custom transformation logic.

@@ -7,6 +7,7 @@ from typing import Dict, List, Any, Optional
 import csv
 import json
 import logging
+import os
 from datetime import datetime
 from uuid import UUID, uuid4
 from dataclasses import dataclass, field
@@ -23,7 +24,7 @@ class PipelineMetrics:
     """Metrics for pipeline execution."""
     file_id: Optional[UUID] = None
     pipeline_name: str = "default"
-    
+
     # Stage metrics
     extract_records: int = 0
     validate_records: int = 0
@@ -32,7 +33,7 @@ class PipelineMetrics:
     transform_records: int = 0
     load_records: int = 0
     skipped_records: int = 0
-    
+
     # Timing
     started_at: datetime = field(default_factory=datetime.now)
     extract_duration: float = 0.0
@@ -40,10 +41,10 @@ class PipelineMetrics:
     transform_duration: float = 0.0
     load_duration: float = 0.0
     total_duration: float = 0.0
-    
+
     # Errors
     errors: List[str] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for logging."""
         return {
@@ -86,6 +87,7 @@ class DataPipeline:
         self.mapping = mapping
         self.source_context = source_context
         self.dataset = mapping.get('dataset')
+        self.device_id = source_context.get('device_id')  # Store device_id
         self.target_table = mapping.get('target_table', self.dataset)
         
         # Initialize components
@@ -119,19 +121,19 @@ class DataPipeline:
             # Stage 1: Extract (already done - just count)
             self._log_stage_start('extract')
             self.metrics.extract_records = len(raw_records)
-            self._log_stage_end('extract', self.metrics.extract_records, 
+            self._log_stage_end('extract', self.metrics.extract_records,
                               self.metrics.extract_records)
-            
+
             # Stage 2: Validate & Transform & Stage
             self._log_stage_start('validate')
             self._validate_and_stage(raw_records)
-            self._log_stage_end('validate', self.metrics.extract_records, 
+            self._log_stage_end('validate', self.metrics.extract_records,
                               self.metrics.valid_records)
-            
+
             # Stage 3: Load valid records
             self._log_stage_start('load')
             self._load_to_final()
-            self._log_stage_end('load', self.metrics.valid_records, 
+            self._log_stage_end('load', self.metrics.valid_records,
                               self.metrics.load_records)
             
             # Calculate total duration
@@ -145,6 +147,8 @@ class DataPipeline:
         except Exception as e:
             logger.error(f"Pipeline failed: {e}", exc_info=True)
             self.metrics.errors.append(str(e))
+            # Rollback failed transaction before logging
+            self.connection.rollback()
             self._log_stage_end('load', 0, 0, status='failed', error=str(e))
             raise
         
@@ -156,55 +160,58 @@ class DataPipeline:
         
         for idx, raw_record in enumerate(raw_records):
             row_number = idx + 1
-            
+
             # Insert to staging (raw)
             staging_id = self.staging.insert_raw(
                 file_id=self.source_context.get('source_file'),
                 row_number=row_number,
                 raw_data=raw_record
             )
-            
-            # Validate
-            validation_result = self.validator.validate_record(raw_record)
-            
-            if validation_result.is_valid:
-                # Transform
-                try:
-                    transformed = self.transformer.transform_record(
-                        raw_record, 
-                        self.source_context
-                    )
-                    
+
+            # Transform
+            try:
+                transformed = self.transformer.transform_record(
+                    raw_record,
+                    self.source_context
+                )
+
+                # Validate
+                validation_result = self.validator.validate_record(transformed)
+
+                if validation_result.is_valid:
+
                     # Update staging with transformed data
                     self.staging.update_validation(
-                        staging_id, 
-                        validation_result, 
+                        staging_id,
+                        validation_result,
                         transformed
                     )
-                    
+
                     self.metrics.valid_records += 1
                     self.metrics.transform_records += 1
-                    
-                except Exception as e:
-                    logger.warning(f"Transformation failed for row {row_number}: {e}")
-                    # Mark as invalid
-                    validation_result.add_error(
-                        'transformation', raw_record, 'transform_error', str(e)
-                    )
+
+                else:
+                    # Record validation errors
                     self.staging.update_validation(staging_id, validation_result)
                     self.metrics.invalid_records += 1
-            else:
-                # Record validation errors
+
+                    # Log first few validation errors for debugging
+                    if self.metrics.invalid_records <= 5:
+                        logger.warning(
+                            f"Validation failed for row {row_number}: "
+                            f"{validation_result.errors[:3]}"
+                        )
+
+            except Exception as e:
+                logger.warning(f"Transformation failed for row {row_number}: {e}")
+                # Mark as invalid
+                validation_result = ValidationResult(is_valid=False)
+                validation_result.add_error(
+                    'transformation', raw_record, 'transform_error', str(e)
+                )
                 self.staging.update_validation(staging_id, validation_result)
                 self.metrics.invalid_records += 1
-                
-                # Log first few validation errors for debugging
-                if self.metrics.invalid_records <= 5:
-                    logger.warning(
-                        f"Validation failed for row {row_number}: "
-                        f"{validation_result.errors[:3]}"
-                    )
-            
+
             self.metrics.validate_records += 1
         
         self.metrics.validate_duration = (datetime.now() - stage_start).total_seconds()
@@ -228,11 +235,14 @@ class DataPipeline:
         
         cursor = self.connection.cursor()
         loaded_staging_ids = []
-        
+
         for record in valid_records:
             staging_id = record.pop('_staging_id')
             
             try:
+                # Add device_id if applicable
+                if 'energy' in str(self.target_table) and 'device_id' not in record:
+                    record['device_id'] = self.device_id
                 # Insert with conflict resolution
                 success = self.conflict_resolver.execute_insert(
                     cursor, 
@@ -300,10 +310,8 @@ class DataPipeline:
               AND stage = %s 
               AND status = 'running'
               AND started_at >= NOW() - INTERVAL '1 hour'
-            ORDER BY started_at DESC
-            LIMIT 1
         """
-        
+
         cursor.execute(sql, (
             status,
             records_in,
@@ -404,25 +412,59 @@ def run_csv_pipeline(file_path: str, connection, mapping: Dict[str, Any],
         PipelineMetrics
     """
     # Build source context
+    file_ext = os.path.splitext(file_path)[1].lower()
     source_context = {
-        'source_type': 'csv',
+        'source_type': 'csv' if file_ext == '.csv' else 'excel',
         'source_file': source_file_id,
         'device_id': device_id,
         'ingestion_method': 'batch'
     }
     
-    # Extract CSV data
+    # Extract data (CSV or Excel)
     raw_records = []
-    with open(file_path, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        raw_records = list(reader)
-    
+    if file_ext in ['.xlsx', '.xls']:
+        # Handle Excel files
+        try:
+            import pandas as pd
+            import numpy as np
+            df = pd.read_excel(file_path)
+            
+            # Clean the dataframe
+            # 1. Remove summary rows (AVG, SUM, TOTAL, etc.)
+            if 'Date' in df.columns:
+                df = df[~df['Date'].astype(str).str.upper().isin(['AVG', 'SUM', 'TOTAL', 'AVERAGE'])]
+            
+            # 2. Remove rows where all values are NaN
+            df = df.dropna(how='all')
+
+            # 3. Replace NaN with None for JSON compatibility
+            df = df.replace({np.nan: None, pd.NA: None, "": None})
+            df = df.where(pd.notnull(df), None)
+
+            # 4. Convert all datetime objects in the DataFrame to ISO strings for JSON serialization
+            for col in df.columns:
+                df[col] = df[col].apply(
+                    lambda x: x.isoformat() if isinstance(x, (datetime, pd.Timestamp)) else x
+                )
+            
+            # 5. Convert to records
+            raw_records = df.to_dict('records')
+
+            logger.info(f"Extracted {len(raw_records)} records from Excel file (after cleaning)")
+        except ImportError:
+            raise ImportError("pandas and openpyxl are required to read Excel files. Install with: pip install pandas openpyxl")
+    else:
+        # Handle CSV files
+        with open(file_path, 'r', encoding='utf-8-sig') as csvfile:
+            reader = csv.DictReader(csvfile)
+            raw_records = list(reader)
+
     # Run pipeline
     pipeline = DataPipeline(connection, mapping, source_context)
     return pipeline.execute(raw_records)
 
 
-def run_api_pipeline(api_records: List[Dict[str, Any]], connection, 
+def run_api_pipeline(api_records: List[Dict[str, Any]], connection,
                      mapping: Dict[str, Any], api_endpoint: str,
                      device_id: Optional[str] = None) -> PipelineMetrics:
     """

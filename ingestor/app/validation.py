@@ -214,7 +214,7 @@ class BusinessRuleValidator:
             'field_name': {
                 'min': 0,
                 'max': 100,
-                'pattern': r'^\d{3}-\d{4}$',
+                'pattern': r'^\\d{3}-\\d{4}$',
                 'allowed_values': ['A', 'B', 'C']
             }
         }
