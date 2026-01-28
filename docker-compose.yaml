@@ -5,7 +5,7 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: ocei2
+      POSTGRES_DB: ocei3
       POSTGRES_USER: ocei
       POSTGRES_PASSWORD: ocei
     volumes:
@@ -17,7 +17,7 @@ services:
     image: flyway/flyway:10
     command: migrate
     environment:
-      FLYWAY_URL: jdbc:postgresql://postgres:5432/ocei2
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/ocei3
       FLYWAY_USER: ocei
       FLYWAY_PASSWORD: ocei
     volumes:
@@ -36,15 +36,15 @@ services:
       PGPASSWORD: ocei
     entrypoint: >
       sh -c "
-      psql -h postgres -U ocei -d ocei2
-      -c \"\\copy device(device_name, device_id, client, alias, device_token)
-           FROM '/db/seeds/device_tokens.csv' CSV HEADER;\"
+      psql -h postgres -U ocei -d ocei3
+      -c \"\\copy generic_device(device_id, device_type, alias, client, description, status, timezone, metadata)
+           FROM '/db/seeds/devices_v2.csv' CSV HEADER;\"
       "
 
   ingestor:
     build: ./ingestor
     environment:
-      DB_DSN: postgres://ocei:ocei@postgres:5432/ocei2
+      DB_DSN: postgres://ocei:ocei@postgres:5432/ocei3
     volumes:
       - ./data:/data
     depends_on:

@@ -57,14 +57,14 @@ class StagingManager:
             raise ValueError(f"No staging table configured for dataset: {dataset}")
         self.staging_table = self.STAGING_TABLES[dataset]
     
-    def insert_raw(self, file_id: UUID, row_number: int, 
+    def insert_raw(self, file_id: UUID, row_number: int,
                    raw_data: Dict[str, Any]) -> int:
         """Insert raw record into staging table."""
         # Sanitize data to remove NaN/Inf values before JSON serialization
         sanitized_data = sanitize_for_json(raw_data)
         
         sql = f"""
-            INSERT INTO {self.staging_table} 
+            INSERT INTO {self.staging_table}
                 (file_id, row_number, raw_data, created_at)
             VALUES (%s, %s, %s, NOW())
             RETURNING staging_id

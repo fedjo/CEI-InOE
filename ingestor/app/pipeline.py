@@ -12,9 +12,9 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from dataclasses import dataclass, field
 
-from .validation import DataValidator, ValidationResult
-from .transformation import DataTransformer
-from .staging import StagingManager, ConflictResolver
+from validation import DataValidator, ValidationResult
+from transformation import DataTransformer
+from staging import StagingManager, ConflictResolver
 
 logger = logging.getLogger(__name__)
 
@@ -274,7 +274,7 @@ class DataPipeline:
         cursor = self.connection.cursor()
         
         sql = """
-            INSERT INTO pipeline_execution 
+            INSERT INTO pipeline_execution
                 (file_id, pipeline_name, stage, started_at, status, execution_metadata)
             VALUES (%s, %s, %s, NOW(), 'running', %s)
         """
