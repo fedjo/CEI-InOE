@@ -1,0 +1,34 @@
+dataset: energy_daily
+granularity: daily
+
+columns:
+  "Date and Time": ts
+  "Daily": energy_kwh
+
+coercions:
+  ts: date
+  energy_kwh: float
+# Validation Rules (Phase 1 Refactoring)
+validation_rules:
+  schema:
+    required:
+      - ts
+      - energy_kwh
+  
+  constraints:
+    energy_kwh:
+      min: 0
+      max: 100000
+
+# Conflict Resolution Strategy
+conflict_resolution:
+  strategy: update
+  on_columns:
+    - device_id
+    - ts
+  update_columns:
+    - energy_kwh
+
+# Target Configuration
+target_table: fact_energy_daily
+staging_table: staging_energy_daily

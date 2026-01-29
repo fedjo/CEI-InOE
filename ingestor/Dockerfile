@@ -5,7 +5,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ingestor.py .
-COPY mappings ./mappings
+COPY app/ .
 
-CMD ["python", "ingestor.py"]
+CMD ["python", "main.py"]
