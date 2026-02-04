@@ -10,7 +10,7 @@ class DeviceType(str, Enum):
     WEATHER = "weather"
     PV = "pv"
     DAIRY = "dairy"
-    OTHER = "other"
+    UNKNOWN = "unknown"
 
 
 def upsert_device(

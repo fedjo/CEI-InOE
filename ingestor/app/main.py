@@ -108,11 +108,17 @@ def detect_dataset_from_content(path: str) -> Dict[str, Any]:
     if dtype == 'energy':
         m = re.match(r'^([a-f0-9]{20,})-', fname)
         device_id = m.group(1) if m else None
-    
+    elif dtype == 'dairy':
+        device_id = 'lelyna'
+    elif dtype == 'dairy 2':
+        device_id = 'delaval'
+    else:
+        device_id = 'testweather2'
+
     # Get date range and granularity from full data
     df_full = read_fn(path)
     ts_col = next((c for c in df_full.columns if any(k in c.lower() for k in ['date', 'time', 'timestamp'])), None)
-    
+
     start_date = end_date = granularity = None
     if ts_col and len(df_full) > 0:
         # Parse timestamps
@@ -128,7 +134,7 @@ def detect_dataset_from_content(path: str) -> Dict[str, Any]:
                 granularity = 'hourly' if median_delta < 7200 else 'daily' if median_delta < 172800 else 'raw'
             else:
                 granularity = 'daily'
-    
+
     return {
         'mapping': f"{MAPPINGS_DIR}/{mapping}.yaml",
         'device_id': device_id,
@@ -158,7 +164,7 @@ def check_duplicate(cursor, table: str, primary_key_cols: List[str],
             f"SELECT 1 FROM {table} WHERE {pk_where} LIMIT 1",
             pk_values
         )
-        
+
         return cursor.fetchone() is not None
     except Exception as e:
         logger.error(f"Error checking duplicate in {table}: {str(e)}")
@@ -175,20 +181,24 @@ def ingest_file_with_pipeline(file_path: str, meta: Dict[str, Any]) -> Dict[str,
     """
     if not PIPELINE_ENABLED:
         return {'error': 'Pipeline not enabled'}
-    
+
     fname = os.path.basename(file_path)
     sha = file_sha256(file_path)
     device_id = meta.get('device_id')
-    
+
     with open(meta['mapping']) as f:
         mapping = yaml.safe_load(f)
-    
+
     connection = get_conn()
     try:
         cursor = connection.cursor()
         # Resolve device_id to PK for energy datasets
         if device_id:
-            cursor.execute("SELECT id FROM device WHERE device_id = %s", (device_id,))
+            cursor.execute("SELECT id FROM generic_device WHERE device_id = %s", (device_id,))
+            row = cursor.fetchone()
+            device_id = row[0] if row else None
+        else:
+            cursor.execute("SELECT id FROM generic_device WHERE device_id = %s", ('unknown',))
             row = cursor.fetchone()
             device_id = row[0] if row else None
 
@@ -200,13 +210,13 @@ def ingest_file_with_pipeline(file_path: str, meta: Dict[str, Any]) -> Dict[str,
 
         file_id = str(uuid.uuid4())
         granularity = meta.get('granularity') or mapping.get('granularity', 'unknown')
-        
+
         cursor.execute("""
             INSERT INTO ingest_file
                 (file_id, file_name, device_id, granularity, start_date, end_date, sha256, pipeline_version)
             VALUES (%s, %s, %s, %s, %s, %s, %s, '2.0')
             RETURNING file_id
-        """, (file_id, fname, device_id, granularity, meta.get('start_date'), meta.get('end_date'), sha))
+        """, (file_id, fname, str(device_id), granularity, meta.get('start_date'), meta.get('end_date'), sha))
         connection.commit()
 
         # Run pipeline
@@ -217,11 +227,11 @@ def ingest_file_with_pipeline(file_path: str, meta: Dict[str, Any]) -> Dict[str,
             source_file_id=uuid.UUID(file_id),
             device_id=device_id
         )
-        
+
         # Update ingest_file with results
         cursor.execute("""
             UPDATE ingest_file
-            SET 
+            SET
                 execution_time_ms = %s,
                 validation_status = %s,
                 quality_score = %s
@@ -234,7 +244,7 @@ def ingest_file_with_pipeline(file_path: str, meta: Dict[str, Any]) -> Dict[str,
             file_id
         ))
         connection.commit()
-        
+
         logger.info(
             f"✓ Pipeline completed for {fname}: "
             f"{metrics.load_records} loaded, "
@@ -242,14 +252,14 @@ def ingest_file_with_pipeline(file_path: str, meta: Dict[str, Any]) -> Dict[str,
             f"{metrics.skipped_records} skipped "
             f"({metrics.total_duration:.2f}s)"
         )
-        
+
         return {
             'status': 'success',
             'file': fname,
             'file_id': file_id,
             'metrics': metrics.to_dict()
         }
-        
+
     except Exception as e:
         logger.error(f"Pipeline failed for {fname}: {e}", exc_info=True)
         connection.rollback()
