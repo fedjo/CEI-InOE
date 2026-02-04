@@ -12,8 +12,8 @@ from datetime import datetime
 from uuid import UUID, uuid4
 from dataclasses import dataclass, field
 
-from validation import DataValidator, ValidationResult
-from transformation import DataTransformer
+from validation import ValidationResult
+from pydantic_transformer import PydanticTransformer
 from staging import StagingManager, ConflictResolver
 
 logger = logging.getLogger(__name__)
@@ -90,9 +90,8 @@ class DataPipeline:
         self.device_id = source_context.get('device_id')  # Store device_id
         self.target_table = mapping.get('target_table', self.dataset)
         
-        # Initialize components
-        self.validator = DataValidator(mapping)
-        self.transformer = DataTransformer(mapping)
+        # Initialize components - using unified PydanticTransformer
+        self.pydantic_transformer = PydanticTransformer(mapping)
         self.staging = StagingManager(connection, self.dataset)
         
         # Conflict resolution
@@ -155,7 +154,15 @@ class DataPipeline:
         return self.metrics
     
     def _validate_and_stage(self, raw_records: List[Dict[str, Any]]):
-        """Validate, transform, and stage records."""
+        """
+        Validate, transform, and stage records using PydanticTransformer.
+        
+        This method uses the unified PydanticTransformer which:
+        1. Maps CSV columns to DB columns
+        2. Coerces types (with European decimal, AM/PM date support)
+        3. Validates constraints (min/max, required fields)
+        4. Returns transformed data or validation errors
+        """
         stage_start = datetime.now()
         
         for idx, raw_record in enumerate(raw_records):
@@ -168,18 +175,14 @@ class DataPipeline:
                 raw_data=raw_record
             )
 
-            # Transform
+            # Transform + Validate in one step using Pydantic
             try:
-                transformed = self.transformer.transform_record(
+                transformed, validation_result = self.pydantic_transformer.transform_and_validate(
                     raw_record,
                     self.source_context
                 )
 
-                # Validate
-                validation_result = self.validator.validate_record(transformed)
-
-                if validation_result.is_valid:
-
+                if validation_result.is_valid and transformed is not None:
                     # Update staging with transformed data
                     self.staging.update_validation(
                         staging_id,
@@ -199,11 +202,11 @@ class DataPipeline:
                     if self.metrics.invalid_records <= 5:
                         logger.warning(
                             f"Validation failed for row {row_number}: "
-                            f"{validation_result.errors[:3]}"
+                            f"{[str(e) for e in validation_result.errors[:3]]}"
                         )
 
             except Exception as e:
-                logger.warning(f"Transformation failed for row {row_number}: {e}")
+                logger.warning(f"Transform/validate failed for row {row_number}: {e}")
                 # Mark as invalid
                 validation_result = ValidationResult(is_valid=False)
                 validation_result.add_error(
