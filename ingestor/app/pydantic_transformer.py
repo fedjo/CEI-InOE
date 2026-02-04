@@ -21,22 +21,22 @@ logger = logging.getLogger(__name__)
 class PydanticTransformer:
     """
     Unified validation + transformation using Pydantic models.
-    
+
     This class replaces:
     - validation.py::DataValidator (schema, type, business rule validation)
     - transformation.py::DataTransformer (column mapping, type coercion)
-    
+
     Benefits:
     - Single pass validation + transformation
     - Type-safe models with IDE support
     - Better error messages from Pydantic
     - Constraint validation via Field(ge=, le=, etc.)
     """
-    
+
     def __init__(self, mapping: Dict[str, Any]):
         """
         Initialize transformer from YAML mapping configuration.
-        
+
         Args:
             mapping: YAML mapping dict with 'dataset', 'columns', etc.
         """
@@ -44,9 +44,9 @@ class PydanticTransformer:
         self.dataset = mapping.get('dataset')
         self.columns = mapping.get('columns', {})  # CSV column → DB column mapping
         self.model_class = get_model_for_dataset(self.dataset)
-        
+
         logger.debug(f"PydanticTransformer initialized for {self.dataset}")
-    
+
     def transform_and_validate(
         self,
         raw_data: Dict[str, Any],
@@ -54,7 +54,7 @@ class PydanticTransformer:
     ) -> Tuple[Optional[Dict[str, Any]], ValidationResult]:
         """
         Transform and validate a single record using Pydantic.
-        
+
         This method:
         1. Maps CSV columns to DB columns using YAML mapping
         2. Injects source metadata
@@ -82,8 +82,13 @@ class PydanticTransformer:
         for csv_col, db_col in self.columns.items():
             if csv_col in raw_data:
                 mapped_data[db_col] = raw_data[csv_col]
-        
-        # ── Step 2: Inject source metadata ────────────────────────────────
+
+        # ── Step 2: Inject source metadata and device_id ────────────────────────────────
+        if 'energy' in self.dataset:
+            # Inject device_id for energy datasets
+            device_id = source_context.get('device_id')
+            if device_id is not None:
+                mapped_data['device_id'] = device_id  # Assuming device_id is integer FK
         # These fields are defined in BaseRecord but won't be inserted to DB
         # (they're excluded in model_dump below)
         source_type_str = source_context.get('source_type', 'csv')
@@ -91,30 +96,30 @@ class PydanticTransformer:
             mapped_data['source_type'] = SourceType(source_type_str)
         except ValueError:
             mapped_data['source_type'] = SourceType.UNKNOWN
-        
+
         mapped_data['source_file'] = source_context.get('source_file')
         mapped_data['source_api_endpoint'] = source_context.get('api_endpoint')
-        mapped_data['source_device_id'] = source_context.get('device_id')
+        mapped_data['source_device_id'] = str(source_context.get('device_id'))
         mapped_data['ingestion_method'] = source_context.get('ingestion_method', 'batch')
         mapped_data['ingested_at'] = datetime.now()
-        
+
         # ── Step 3: Validate with Pydantic ────────────────────────────────
         try:
             validated_model: BaseRecord = self.model_class.model_validate(mapped_data)
-            
+
             # Convert to dict for database insertion
             # Exclude source metadata fields (they're for tracking, not DB columns)
             transformed = validated_model.model_dump(
-                exclude={
-                    'source_type', 
-                    'source_api_endpoint',
-                    'source_device_id',
-                    'ingestion_method', 
-                    'ingested_at'
-                },
+                # exclude={
+                #     'source_type',
+                #     'source_api_endpoint',
+                #     'source_device_id',
+                #     'ingestion_method',
+                #     'ingested_at'
+                # },
                 exclude_none=False,  # Keep None values for optional fields
             )
-            
+
             # Handle source_file separately - it IS a DB column for some tables
             if source_context.get('source_file'):
                 # Ensure it's a UUID, not string
@@ -123,7 +128,7 @@ class PydanticTransformer:
             else:
                 # Remove if None to avoid inserting NULL
                 transformed.pop('source_file', None)
-            
+
             return transformed, result
             
         except PydanticValidationError as e:

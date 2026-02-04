@@ -1,7 +1,6 @@
 -- ============================================================================
 -- V008: Refactor device table to support multiple device types
 -- ============================================================================
-
 -- Create new unified device table
 CREATE TABLE generic_device (
     id              SERIAL PRIMARY KEY,
@@ -87,3 +86,26 @@ CREATE TRIGGER tr_generic_device_updated
     BEFORE UPDATE ON generic_device
     FOR EACH ROW
     EXECUTE FUNCTION update_generic_device_timestamp();
+
+-- ============================================================================
+-- Migrate foreign keys from fact_energy_* tables to generic_device
+-- ============================================================================
+-- Drop existing foreign key constraints on fact_energy tables
+ALTER TABLE fact_energy_daily DROP CONSTRAINT IF EXISTS fact_energy_daily_device_id_fkey;
+ALTER TABLE fact_energy_hourly DROP CONSTRAINT IF EXISTS fact_energy_hourly_device_id_fkey;
+
+-- Add new foreign key constraints referencing generic_device
+-- Using device_id (VARCHAR) as the reference column
+ALTER TABLE fact_energy_daily
+    ADD CONSTRAINT fact_energy_daily_device_id_fkey
+    FOREIGN KEY (device_id) REFERENCES generic_device(id)
+    ON DELETE CASCADE;
+
+ALTER TABLE fact_energy_hourly
+    ADD CONSTRAINT fact_energy_hourly_device_id_fkey
+    FOREIGN KEY (device_id) REFERENCES generic_device(id)
+    ON DELETE CASCADE;
+
+-- Add comments for documentation
+COMMENT ON CONSTRAINT fact_energy_daily_device_id_fkey ON fact_energy_daily IS 'References unified generic_device table';
+COMMENT ON CONSTRAINT fact_energy_hourly_device_id_fkey ON fact_energy_hourly IS 'References unified generic_device table';

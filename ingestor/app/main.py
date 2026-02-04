@@ -108,6 +108,12 @@ def detect_dataset_from_content(path: str) -> Dict[str, Any]:
     if dtype == 'energy':
         m = re.match(r'^([a-f0-9]{20,})-', fname)
         device_id = m.group(1) if m else None
+    elif dtype == 'dairy':
+        device_id = 'lelyna'
+    elif dtype == 'dairy 2':
+        device_id = 'delaval'
+    else:
+        device_id = 'testweather2'
 
     # Get date range and granularity from full data
     df_full = read_fn(path)
@@ -188,7 +194,11 @@ def ingest_file_with_pipeline(file_path: str, meta: Dict[str, Any]) -> Dict[str,
         cursor = connection.cursor()
         # Resolve device_id to PK for energy datasets
         if device_id:
-            cursor.execute("SELECT id FROM device WHERE device_id = %s", (device_id,))
+            cursor.execute("SELECT id FROM generic_device WHERE device_id = %s", (device_id,))
+            row = cursor.fetchone()
+            device_id = row[0] if row else None
+        else:
+            cursor.execute("SELECT id FROM generic_device WHERE device_id = %s", ('unknown',))
             row = cursor.fetchone()
             device_id = row[0] if row else None
 
@@ -206,7 +216,7 @@ def ingest_file_with_pipeline(file_path: str, meta: Dict[str, Any]) -> Dict[str,
                 (file_id, file_name, device_id, granularity, start_date, end_date, sha256, pipeline_version)
             VALUES (%s, %s, %s, %s, %s, %s, %s, '2.0')
             RETURNING file_id
-        """, (file_id, fname, device_id, granularity, meta.get('start_date'), meta.get('end_date'), sha))
+        """, (file_id, fname, str(device_id), granularity, meta.get('start_date'), meta.get('end_date'), sha))
         connection.commit()
 
         # Run pipeline

@@ -400,10 +400,10 @@ class DataPipeline:
 
 def run_csv_pipeline(file_path: str, connection, mapping: Dict[str, Any],
                      source_file_id: Optional[UUID] = None,
-                     device_id: Optional[str] = None) -> PipelineMetrics:
+                     device_id: Optional[int] = None) -> PipelineMetrics:
     """
     Convenience function to run pipeline for CSV file.
-    
+
     Args:
         file_path: Path to CSV file
         connection: Database connection
