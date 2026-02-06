@@ -41,7 +41,7 @@ class PydanticTransformer:
             mapping: YAML mapping dict with 'dataset', 'columns', etc.
         """
         self.mapping = mapping
-        self.dataset = mapping.get('dataset')
+        self.dataset = str(mapping.get('dataset'))
         self.columns = mapping.get('columns', {})  # CSV column → DB column mapping
         self.model_class = get_model_for_dataset(self.dataset)
 
@@ -281,7 +281,7 @@ class PydanticTransformerFactory:
         Returns:
             PydanticTransformer instance
         """
-        dataset = mapping.get('dataset')
+        dataset = str(mapping.get('dataset'))
         
         if dataset not in cls._cache:
             cls._cache[dataset] = PydanticTransformer(mapping)

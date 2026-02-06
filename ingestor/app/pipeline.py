@@ -86,7 +86,7 @@ class DataPipeline:
         self.connection = connection
         self.mapping = mapping
         self.source_context = source_context
-        self.dataset = mapping.get('dataset')
+        self.dataset = str(mapping.get('dataset'))
         self.device_id = source_context.get('device_id')  # Store device_id
         self.target_table = mapping.get('target_table', self.dataset)
         
@@ -170,7 +170,7 @@ class DataPipeline:
 
             # Insert to staging (raw)
             staging_id = self.staging.insert_raw(
-                file_id=self.source_context.get('source_file'),
+                file_id=self.source_context.get('source_file'), # type: ignore
                 row_number=row_number,
                 raw_data=raw_record
             )
@@ -397,7 +397,7 @@ class DataPipeline:
         
         self.connection.commit()
 
-
+# Deprecated
 def run_csv_pipeline(file_path: str, connection, mapping: Dict[str, Any],
                      source_file_id: Optional[UUID] = None,
                      device_id: Optional[int] = None) -> PipelineMetrics:
@@ -442,7 +442,7 @@ def run_csv_pipeline(file_path: str, connection, mapping: Dict[str, Any],
 
             # 3. Replace NaN with None for JSON compatibility
             df = df.replace({np.nan: None, pd.NA: None, "": None})
-            df = df.where(pd.notnull(df), None)
+            df = df.where(pd.notnull(df), None) # type: ignore
 
             # 4. Convert all datetime objects in the DataFrame to ISO strings for JSON serialization
             for col in df.columns:
@@ -466,7 +466,7 @@ def run_csv_pipeline(file_path: str, connection, mapping: Dict[str, Any],
     pipeline = DataPipeline(connection, mapping, source_context)
     return pipeline.execute(raw_records)
 
-
+# Deprecated
 def run_api_pipeline(api_records: List[Dict[str, Any]], connection,
                      mapping: Dict[str, Any], api_endpoint: str,
                      device_id: Optional[str] = None) -> PipelineMetrics:

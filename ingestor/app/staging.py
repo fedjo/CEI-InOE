@@ -76,7 +76,7 @@ class StagingManager:
                 json.dumps(sanitized_data)
             ))
             result = cursor.fetchone()
-            return result[0] if result else None
+            return result[0] if result else None # type: ignore
     
     def update_validation(self, staging_id: int, 
                          validation_result: Any,
