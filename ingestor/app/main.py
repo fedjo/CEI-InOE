@@ -1,335 +1,195 @@
-import os
-import re
-import sys
-import time
-import uuid
-import hashlib
+"""
+CEI-InOE Ingestor - Main Entry Point
+Connector-based architecture with APScheduler.
+"""
+
 import logging
-import pandas as pd
-import psycopg2
-import yaml
-from typing import Dict, List, Any
+import signal
+import sys
+from queue import Empty, Queue
+from threading import Event, Thread
+from typing import Dict, List
 
-from pipeline import run_csv_pipeline
+from apscheduler.schedulers.background import BackgroundScheduler
 
+from config import (
+    CONNECTOR_CONFIGS,
+    DB_DSN,
+    LOG_FORMAT,
+    LOG_LEVEL,
+    NUM_WORKERS,
+    QUEUE_MAX_SIZE,
+)
+from connectors import BaseConnector, InputEnvelope, create_connector
+from pipeline_runner import DuplicateInputError, PipelineRunner
+
+# ============================================================================
+# Logging
+# ============================================================================
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+    level=getattr(logging, LOG_LEVEL.upper(), logging.INFO),
+    format=LOG_FORMAT,
     stream=sys.stdout
 )
-
 logger = logging.getLogger(__name__)
 
-# Add parent directory to path for api_fetcher imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Phase 1 Refactoring: Import new pipeline modules
-
-PIPELINE_ENABLED = True
-
-
-WATCH_DIR = "/data/incoming"
-PROCESSED_DIR = "/data/processed"
-REJECTED_DIR = "/data/rejected"
-MAPPINGS_DIR = "/app/mappings"
-
-POLL_INTERVAL = 10
-STABLE_SECONDS = 3
-
 # ============================================================================
-# Connection Management
+# Worker Pool
 # ============================================================================
 
-def get_conn():
-    """Get database connection."""
-    return psycopg2.connect(os.environ["DB_DSN"])
+class WorkerPool:
+    """Pool of workers processing InputEnvelopes."""
 
-# ============================================================================
-# File Operations
-# ============================================================================
+    def __init__(self, num_workers: int, queue: Queue, runner: PipelineRunner,
+                 connectors: Dict[str, BaseConnector]):
+        self.queue = queue
+        self.runner = runner
+        self.connectors = connectors
+        self.shutdown_event = Event()
+        self.workers: List[Thread] = [
+            Thread(target=self._worker_loop, name=f"worker-{i}", daemon=True)
+            for i in range(num_workers)
+        ]
 
-def file_sha256(path: str) -> str:
-    """Calculate SHA256 hash of file for deduplication."""
-    sha256_hash = hashlib.sha256()
-    with open(path, "rb") as f:
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-    return sha256_hash.hexdigest()
+    def start(self):
+        """Start workers."""
+        for t in self.workers:
+            t.start()
+        logger.info(f"Started {len(self.workers)} workers")
+    
+    def stop(self):
+        """Stop workers."""
+        self.shutdown_event.set()
+        for t in self.workers:
+            t.join(timeout=5)
+        logger.info("Workers stopped")
 
-
-def is_stable(path: str) -> bool:
-    """Check if file size is stable (not being written to)."""
-    s1 = os.path.getsize(path)
-    time.sleep(STABLE_SECONDS)
-    return s1 == os.path.getsize(path)
-
-
-def generate_device_id(location: str) -> str:
-    """Generate device_id from location string."""
-    if location is None or pd.isna(location):
-        location = "unknown"
-    location = str(location).strip()
-    if not location or location.lower() == "nan":
-        location = "unknown"
-    return f"device_{hashlib.md5(location.encode()).hexdigest()[:8]}"
-
-
-def detect_dataset_from_content(path: str) -> Dict[str, Any]:
-    """
-    Detect dataset type, granularity, date range from file content.
-    Returns: {mapping, device_id, start_date, end_date, granularity}
-    """
-    fname = os.path.basename(path)
-    ext = os.path.splitext(fname)[1].lower()
-
-    # Read header + sample rows
-    read_fn = pd.read_excel if ext == '.xlsx' else pd.read_csv
-    df = read_fn(path, nrows=5)
-    cols = {c.lower() for c in df.columns}
-
-    # Detect type by column signatures
-    if cols & {'pm10', 'pm2p5', 'humidity', 'temperature', 'atm_pressure'} or \
-       any('µg/m' in c or 'hpa' in c.lower() for c in df.columns):
-        mapping, dtype = 'environmental_metrics', 'environmental'
-    elif cols & {'nr. animals', 'feed efficiency', 'rumination'} or \
-         any('production' in c and 'cow' in c for c in cols):
-        mapping, dtype = 'dairy_production', 'dairy'
-    elif {'date and time'} & cols and len(df.columns) == 2:
-        # Energy file: 2 columns (Date and Time, Hourly/Daily)
-        second_col = [c for c in df.columns if c.lower() != 'date and time'][0]
-        mapping = 'energy_hourly' if 'hourly' in second_col.lower() else 'energy_daily'
-        dtype = 'energy'
-    else:
-        raise ValueError(f"Cannot detect dataset type for {fname}")
-
-    # Extract device_id only for energy (from filename pattern: UUID-type-...)
-    device_id = None
-    if dtype == 'energy':
-        m = re.match(r'^([a-f0-9]{20,})-', fname)
-        device_id = m.group(1) if m else None
-    elif dtype == 'dairy':
-        device_id = 'lelyna'
-    elif dtype == 'dairy 2':
-        device_id = 'delaval'
-    else:
-        device_id = 'testweather2'
-
-    # Get date range and granularity from full data
-    df_full = read_fn(path)
-    ts_col = next((c for c in df_full.columns if any(k in c.lower() for k in ['date', 'time', 'timestamp'])), None)
-
-    start_date = end_date = granularity = None
-    if ts_col and len(df_full) > 0:
-        # Parse timestamps
-        ts_series = pd.to_datetime(df_full[ts_col], errors='coerce')
-        ts_series = ts_series.dropna()
-        if len(ts_series) > 0:
-            start_date = ts_series.min().date()
-            end_date = ts_series.max().date()
-            # Detect granularity from median time delta
-            if len(ts_series) > 1:
-                deltas = ts_series.sort_values().diff().dropna()
-                median_delta = deltas.median().total_seconds()
-                granularity = 'hourly' if median_delta < 7200 else 'daily' if median_delta < 172800 else 'raw'
-            else:
-                granularity = 'daily'
-
-    return {
-        'mapping': f"{MAPPINGS_DIR}/{mapping}.yaml",
-        'device_id': device_id,
-        'start_date': start_date,
-        'end_date': end_date,
-        'granularity': granularity or ('hourly' if 'hourly' in mapping else 'daily'),
-        'dataset_type': dtype
-    }
+    def _worker_loop(self):
+        """Worker main loop."""
+        while not self.shutdown_event.is_set():
+            try:
+                envelope: InputEnvelope = self.queue.get(timeout=1)
+            except Empty:
+                continue
+            
+            connector = self.connectors.get(envelope.connector_id)
+            if not connector:
+                logger.error(f"Unknown connector: {envelope.connector_id}")
+                continue
+            
+            try:
+                metrics = self.runner.run(envelope)
+                connector.ack(envelope)
+                logger.info(
+                    f"✓ {envelope.source_uri}: "
+                    f"{metrics.load_records} loaded, {metrics.invalid_records} invalid"
+                )
+            except DuplicateInputError:
+                connector.ack(envelope)
+                logger.info(f"⊘ Duplicate: {envelope.source_uri}")
+            except Exception as e:
+                connector.fail(envelope, str(e))
+                logger.error(f"✗ {envelope.source_uri}: {e}")
+            finally:
+                self.queue.task_done()
 
 
 # ============================================================================
-# Database Operations - New Modular (for ingest_csv_file)
+# Scheduler
 # ============================================================================
 
-def check_duplicate(cursor, table: str, primary_key_cols: List[str],
-                   values: Dict[str, Any]) -> bool:
-    """
-    Check if record exists using primary key columns.
-    Returns True if duplicate found, False otherwise.
-    FIXED: Use SELECT 1 instead of SELECT id
-    """
-    try:
-        pk_values = [values[col] for col in primary_key_cols]
-        pk_where = ' AND '.join([f"{col} = %s" for col in primary_key_cols])
-
-        cursor.execute(
-            f"SELECT 1 FROM {table} WHERE {pk_where} LIMIT 1",
-            pk_values
-        )
-
-        return cursor.fetchone() is not None
-    except Exception as e:
-        logger.error(f"Error checking duplicate in {table}: {str(e)}")
-        return False
-
-# ============================================================================
-# New Pipeline Integration (Phase 1 Refactoring)
-# ============================================================================
-
-def ingest_file_with_pipeline(file_path: str, meta: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Ingest file using new modular pipeline.
-    Args: file_path, meta={mapping, device_id, start_date, end_date, granularity}
-    """
-    if not PIPELINE_ENABLED:
-        return {'error': 'Pipeline not enabled'}
-
-    fname = os.path.basename(file_path)
-    sha = file_sha256(file_path)
-    device_id = meta.get('device_id')
-
-    with open(meta['mapping']) as f:
-        mapping = yaml.safe_load(f)
-
-    connection = get_conn()
-    try:
-        cursor = connection.cursor()
-        # Resolve device_id to PK for energy datasets
-        if device_id:
-            cursor.execute("SELECT id FROM generic_device WHERE device_id = %s", (device_id,))
-            row = cursor.fetchone()
-            device_id = row[0] if row else None
-        else:
-            cursor.execute("SELECT id FROM generic_device WHERE device_id = %s", ('unknown',))
-            row = cursor.fetchone()
-            device_id = row[0] if row else None
-
-        # Check duplicates
-        cursor.execute("SELECT file_id FROM ingest_file WHERE sha256 = %s", (sha,))
-        if cursor.fetchone():
-            logger.info(f"File {fname} already processed (duplicate SHA256)")
-            return {'status': 'skipped', 'reason': 'duplicate', 'file': fname}
-
-        file_id = str(uuid.uuid4())
-        granularity = meta.get('granularity') or mapping.get('granularity', 'unknown')
-
-        cursor.execute("""
-            INSERT INTO ingest_file
-                (file_id, file_name, device_id, granularity, start_date, end_date, sha256, pipeline_version)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, '2.0')
-            RETURNING file_id
-        """, (file_id, fname, str(device_id), granularity, meta.get('start_date'), meta.get('end_date'), sha))
-        connection.commit()
-
-        # Run pipeline
-        metrics = run_csv_pipeline(
-            file_path=file_path,
-            connection=connection,
-            mapping=mapping,
-            source_file_id=uuid.UUID(file_id),
-            device_id=device_id
-        )
-
-        # Update ingest_file with results
-        cursor.execute("""
-            UPDATE ingest_file
-            SET
-                execution_time_ms = %s,
-                validation_status = %s,
-                quality_score = %s
-            WHERE file_id = %s
-        """, (
-            int(metrics.total_duration * 1000),
-            'passed' if metrics.invalid_records == 0 else 'partial',
-            round((metrics.valid_records / metrics.extract_records * 100)
-                  if metrics.extract_records > 0 else 0, 2),
-            file_id
-        ))
-        connection.commit()
-
-        logger.info(
-            f"✓ Pipeline completed for {fname}: "
-            f"{metrics.load_records} loaded, "
-            f"{metrics.invalid_records} invalid, "
-            f"{metrics.skipped_records} skipped "
-            f"({metrics.total_duration:.2f}s)"
-        )
-
-        return {
-            'status': 'success',
-            'file': fname,
-            'file_id': file_id,
-            'metrics': metrics.to_dict()
-        }
-
-    except Exception as e:
-        logger.error(f"Pipeline failed for {fname}: {e}", exc_info=True)
-        connection.rollback()
-        return {'status': 'failed', 'file': fname, 'error': str(e)}
-    finally:
-        connection.close()
+def make_discover_job(connector: BaseConnector, queue: Queue):
+    """Create discover job for connector."""
+    def job():
+        try:
+            for item_id in connector.discover():
+                envelope = connector.fetch(item_id)
+                if envelope:
+                    queue.put(envelope)
+        except Exception as e:
+            logger.error(f"[{connector.connector_id}] Discover error: {e}")
+    return job
 
 
 # ============================================================================
-# Main Event Loop
+# Application
 # ============================================================================
+
+class IngestorApp:
+    """Main application."""
+    
+    def __init__(self):
+        self.connectors: Dict[str, BaseConnector] = {}
+        self.queue: Queue = Queue(maxsize=QUEUE_MAX_SIZE)
+        self.scheduler = BackgroundScheduler()
+        self.runner = PipelineRunner(DB_DSN)
+        self.worker_pool: WorkerPool = None # type: ignore
+        self.shutdown_event = Event()
+    
+    def setup(self):
+        """Initialize components."""
+        logger.info("=" * 60)
+        logger.info("CEI-InOE Ingestor")
+        logger.info("=" * 60)
+        
+        # Create connectors
+        for conn_id, config in CONNECTOR_CONFIGS.items():
+            if not config.get('enabled', True):
+                continue
+            
+            connector = create_connector(conn_id, config)
+            connector.start()
+            self.connectors[conn_id] = connector
+            
+            # Schedule discovery
+            interval = config.get('schedule_seconds', 60)
+            self.scheduler.add_job(
+                make_discover_job(connector, self.queue),
+                'interval',
+                seconds=interval,
+                id=f"discover_{conn_id}",
+                max_instances=1,
+            )
+            logger.info(f"Registered: {conn_id} (every {interval}s)")
+        
+        # Create workers
+        self.worker_pool = WorkerPool(NUM_WORKERS, self.queue, self.runner, self.connectors)
+    
+    def run(self):
+        """Start application."""
+        self.setup()
+        
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
+        
+        self.scheduler.start()
+        self.worker_pool.start()
+        
+        logger.info("Running. Ctrl+C to stop.")
+        self.shutdown_event.wait()
+        self._shutdown()
+    
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals."""
+        logger.info(f"Signal {signum}, shutting down...")
+        self.shutdown_event.set()
+    
+    def _shutdown(self):
+        """Graceful shutdown."""
+        logger.info("Shutting down...")
+        self.scheduler.shutdown(wait=False)
+        self.queue.join()
+        self.worker_pool.stop()
+        for c in self.connectors.values():
+            c.stop()
+        logger.info("Done.")
+
 
 def main():
-    """Main application entry point."""
-    os.makedirs(PROCESSED_DIR, exist_ok=True)
-    os.makedirs(REJECTED_DIR, exist_ok=True)
-
-    logger.info("="*60)
-    logger.info("Starting CEI-InOE Ingestor")
-    logger.info(f"Pipeline Mode: {'NEW (Phase 1)' if PIPELINE_ENABLED else 'LEGACY'}")
-    logger.info(f"File watcher: {WATCH_DIR}")
-    logger.info("="*60)
-
-    while True:
-        try:
-            for f in os.listdir(WATCH_DIR):
-                path = f"{WATCH_DIR}/{f}"
-                if (f.endswith(".xlsx") or f.endswith(".csv")) and is_stable(path):
-                    try:
-                        if PIPELINE_ENABLED:
-                            process_file_pipeline(path)
-                        else:
-                            logger.info(f"Processing (legacy) file: {f}")
-                            continue
-                    except Exception as e:
-                        logger.exception(f"Error processing {f}: {e}")
-                        os.rename(path, f"{REJECTED_DIR}/{f}")
-        except Exception as e:
-            logger.exception(f"Error in main loop: {e}")
-        
-        time.sleep(POLL_INTERVAL)
-
-
-def process_file_pipeline(path: str):
-    """Process file using content-based detection."""
-    fname = os.path.basename(path)
-    logger.info(f"[PIPELINE] Processing {fname}")
-    
-    try:
-        meta = detect_dataset_from_content(path)
-        logger.info(f"[PIPELINE] Detected: {meta['dataset_type']} ({meta['granularity']})")
-        result = ingest_file_with_pipeline(path, meta)
-    except Exception as e:
-        logger.error(f"[PIPELINE] Detection/ingestion failed: {e}")
-        result = {'status': 'failed', 'error': str(e)}
-
-    if result.get('status') == 'success':
-        dest = f"{PROCESSED_DIR}/{fname}"
-        os.rename(path, dest)
-        logger.info(f"[PIPELINE] ✓ Moved {fname} → processed/")
-    elif result.get('status') == 'skipped':
-        # Still move to processed if duplicate
-        dest = f"{PROCESSED_DIR}/{fname}"
-        os.rename(path, dest)
-        logger.info(f"[PIPELINE] ⊘ Skipped {fname} (duplicate) → processed/")
-    else:
-        # Failed - move to rejected
-        dest = f"{REJECTED_DIR}/{fname}"
-        os.rename(path, dest)
-        logger.error(f"[PIPELINE] ✗ Failed {fname} → rejected/")
+    """Entry point."""
+    app = IngestorApp()
+    app.run()
 
 
 if __name__ == "__main__":
