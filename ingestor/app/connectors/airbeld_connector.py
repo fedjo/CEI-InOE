@@ -235,37 +235,16 @@ class AirbeldConnector(HttpConnector):
     # -------------------------------------------------------------------------
     
     def _load_devices(self) -> None:
-        """Load weather devices from database."""
+        """Load weather devices from database using DAO."""
         if not self._db_connection:
             logger.warning(f"[{self.connector_id}] No DB connection, using empty device list")
             self._devices = []
             return
         
         try:
-            cursor = self._db_connection.cursor()
-            cursor.execute("""
-                SELECT 
-                    device_id,
-                    alias,
-                    client,
-                    metadata->>'external_id' as external_id,
-                    metadata
-                FROM generic_device
-                WHERE device_type = 'weather'
-                AND status = 'online'
-            """) # `device_type` = 'weather' selects Airbeld weather stations
-            
-            self._devices = []
-            for row in cursor.fetchall():
-                self._devices.append({
-                    'device_id': row[0],
-                    'alias': row[1],
-                    'client': row[2],
-                    'external_id': row[3],
-                    'metadata': row[4],
-                })
-            
-            cursor.close()
+            from dao import DeviceDAO
+            device_dao = DeviceDAO(self._db_connection)
+            self._devices = device_dao.get_weather_devices()
             
         except Exception as e:
             logger.error(f"[{self.connector_id}] Failed to load devices: {e}")
@@ -303,46 +282,32 @@ class AirbeldConnector(HttpConnector):
         return start_date, end_date
     
     def _get_cursor_from_db(self, device_id: str) -> Optional[datetime]:
-        """Get last fetch timestamp from cursor table."""
+        """Get last fetch timestamp from cursor table using DAO."""
         if not self._db_connection:
             return None
         
         try:
-            cursor = self._db_connection.cursor()
-            cursor.execute("""
-                SELECT last_fetch_timestamp
-                FROM api_fetch_cursor
-                WHERE connector_id = %s
-                AND endpoint_id = %s
-                AND device_id = %s
-            """, (self.connector_id, device_id, device_id))
-            
-            row = cursor.fetchone()
-            cursor.close()
-            
-            return row[0] if row else None
+            from dao import CursorDAO
+            cursor_dao = CursorDAO(self._db_connection)
+            return cursor_dao.get_cursor(
+                connector_id=self.connector_id,
+                endpoint_id=device_id,
+                device_id=device_id
+            )
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Cursor table query failed: {e}")
             return None
     
     def _get_max_timestamp_from_data(self, device_id: str) -> Optional[datetime]:
-        """Fallback: get max timestamp from environmental_metrics table."""
+        """Fallback: get max timestamp from environmental_metrics table using DAO."""
         if not self._db_connection:
             return None
         
         try:
-            cursor = self._db_connection.cursor()
-            cursor.execute("""
-                SELECT MAX(timestamp)
-                FROM environmental_metrics
-                WHERE source_device_id = %s
-            """, (device_id,))
-            
-            row = cursor.fetchone()
-            cursor.close()
-            
-            return row[0] if row and row[0] else None
+            from dao.cursor_dao import EnvironmentalMetricsDAO
+            metrics_dao = EnvironmentalMetricsDAO(self._db_connection)
+            return metrics_dao.get_max_timestamp(device_id)
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Data table query failed: {e}")

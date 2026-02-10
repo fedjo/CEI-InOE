@@ -446,7 +446,7 @@ class HttpConnector(BaseConnector):
             logger.warning(f"[{self.connector_id}] Failed to save cursors: {e}")
     
     def _save_cursor_to_db(self, envelope: InputEnvelope) -> None:
-        """Save cursor to database."""
+        """Save cursor to database using DAO."""
         if not self._db_connection:
             return
         
@@ -458,20 +458,14 @@ class HttpConnector(BaseConnector):
             return
         
         try:
-            cursor = self._db_connection.cursor()
-            cursor.execute("""
-                INSERT INTO api_fetch_cursor 
-                    (connector_id, endpoint_id, device_id, last_fetch_timestamp, fetch_count)
-                VALUES (%s, %s, %s, %s, 1)
-                ON CONFLICT (connector_id, endpoint_id, device_id)
-                DO UPDATE SET
-                    last_fetch_timestamp = EXCLUDED.last_fetch_timestamp,
-                    last_fetch_success = NOW(),
-                    fetch_count = api_fetch_cursor.fetch_count + 1,
-                    updated_at = NOW()
-            """, (self.connector_id, endpoint_id, device_id, cursor_value))
-            self._db_connection.commit()
-            cursor.close()
+            from dao import CursorDAO
+            cursor_dao = CursorDAO(self._db_connection)
+            cursor_dao.upsert_cursor(
+                connector_id=self.connector_id,
+                endpoint_id=endpoint_id,
+                device_id=device_id,
+                last_fetch_timestamp=cursor_value
+            )
         except Exception as e:
             logger.warning(f"[{self.connector_id}] Failed to save cursor to DB: {e}")
     

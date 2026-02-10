@@ -4,17 +4,15 @@ Orchestrates extract → validate → transform → load with full observability
 """
 
 from typing import Dict, List, Any, Optional
-import csv
 import json
 import logging
-import os
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 from dataclasses import dataclass, field
 
 from validation import ValidationResult
 from pydantic_transformer import PydanticTransformer
-from staging import StagingManager, ConflictResolver
+from dao import DAOFactory, StagingDAO, DataDAO, PipelineDAO
 
 logger = logging.getLogger(__name__)
 
@@ -90,13 +88,19 @@ class DataPipeline:
         self.device_id = source_context.get('device_id')  # Store device_id
         self.target_table = mapping.get('target_table', self.dataset)
         
+        # Initialize DAO factory
+        self.dao = DAOFactory(connection)
+        
         # Initialize components - using unified PydanticTransformer
         self.pydantic_transformer = PydanticTransformer(mapping)
-        self.staging = StagingManager(connection, self.dataset)
+        self.staging_dao = self.dao.staging(self.dataset)
         
-        # Conflict resolution
+        # Conflict resolution - using DataDAO
         conflict_config = mapping.get('conflict_resolution', {})
-        self.conflict_resolver = ConflictResolver(conflict_config)
+        self.data_dao = self.dao.data(conflict_config)
+        
+        # Pipeline DAO for logging
+        self.pipeline_dao = self.dao.pipeline
         
         # Metrics
         self.metrics = PipelineMetrics(
@@ -168,8 +172,8 @@ class DataPipeline:
         for idx, raw_record in enumerate(raw_records):
             row_number = idx + 1
 
-            # Insert to staging (raw)
-            staging_id = self.staging.insert_raw(
+            # Insert to staging (raw) using DAO
+            staging_id = self.staging_dao.insert_raw(
                 file_id=self.source_context.get('source_file'), # type: ignore
                 row_number=row_number,
                 raw_data=raw_record
@@ -183,19 +187,24 @@ class DataPipeline:
                 )
 
                 if validation_result.is_valid and transformed is not None:
-                    # Update staging with transformed data
-                    self.staging.update_validation(
-                        staging_id,
-                        validation_result,
-                        transformed
+                    # Update staging with transformed data using DAO
+                    self.staging_dao.update_validation(
+                        staging_id=staging_id,
+                        is_valid=True,
+                        validation_errors=None,
+                        transformed_data=transformed
                     )
 
                     self.metrics.valid_records += 1
                     self.metrics.transform_records += 1
 
                 else:
-                    # Record validation errors
-                    self.staging.update_validation(staging_id, validation_result)
+                    # Record validation errors using DAO
+                    self.staging_dao.update_validation(
+                        staging_id=staging_id,
+                        is_valid=False,
+                        validation_errors=validation_result.to_dict() if validation_result else None
+                    )
                     self.metrics.invalid_records += 1
 
                     # Log first few validation errors for debugging
@@ -207,12 +216,12 @@ class DataPipeline:
 
             except Exception as e:
                 logger.warning(f"Transform/validate failed for row {row_number}: {e}")
-                # Mark as invalid
-                validation_result = ValidationResult(is_valid=False)
-                validation_result.add_error(
-                    'transformation', raw_record, 'transform_error', str(e)
+                # Mark as invalid using DAO
+                self.staging_dao.update_validation(
+                    staging_id=staging_id,
+                    is_valid=False,
+                    validation_errors={'errors': [{'error_type': 'transformation', 'message': str(e)}]}
                 )
-                self.staging.update_validation(staging_id, validation_result)
                 self.metrics.invalid_records += 1
 
             self.metrics.validate_records += 1
@@ -220,14 +229,14 @@ class DataPipeline:
         self.metrics.validate_duration = (datetime.now() - stage_start).total_seconds()
         
         # Commit staging changes
-        self.connection.commit()
+        self.dao.commit()
     
     def _load_to_final(self):
         """Load valid records from staging to final table."""
         load_start = datetime.now()
         
-        # Get valid records from staging
-        valid_records = self.staging.get_valid_records(
+        # Get valid records from staging using DAO
+        valid_records = self.staging_dao.get_valid_records(
             file_id=self.source_context.get('source_file')
         )
         
@@ -236,7 +245,6 @@ class DataPipeline:
             self.metrics.load_duration = (datetime.now() - load_start).total_seconds()
             return
         
-        cursor = self.connection.cursor()
         loaded_staging_ids = []
 
         for record in valid_records:
@@ -246,12 +254,9 @@ class DataPipeline:
                 # Add device_id if applicable
                 if 'energy' in str(self.target_table) and 'device_id' not in record:
                     record['device_id'] = self.device_id
-                # Insert with conflict resolution
-                success = self.conflict_resolver.execute_insert(
-                    cursor, 
-                    self.target_table, 
-                    record
-                )
+                
+                # Insert with conflict resolution using DataDAO
+                success = self.data_dao.insert_record(self.target_table, record)
                 
                 if success:
                     self.metrics.load_records += 1
@@ -263,75 +268,41 @@ class DataPipeline:
                 logger.error(f"Failed to load record from staging {staging_id}: {e}")
                 self.metrics.errors.append(f"Load error: {e}")
         
-        # Mark loaded records
+        # Mark loaded records using DAO
         if loaded_staging_ids:
-            self.staging.mark_loaded(loaded_staging_ids)
+            self.staging_dao.mark_loaded(loaded_staging_ids)
         
         # Commit final loads
-        self.connection.commit()
+        self.dao.commit()
         
         self.metrics.load_duration = (datetime.now() - load_start).total_seconds()
     
     def _log_stage_start(self, stage: str):
-        """Log pipeline stage start."""
-        cursor = self.connection.cursor()
-        
-        sql = """
-            INSERT INTO pipeline_execution
-                (file_id, pipeline_name, stage, started_at, status, execution_metadata)
-            VALUES (%s, %s, %s, NOW(), 'running', %s)
-        """
-        
-        metadata = {
-            'dataset': self.dataset,
-            'source_type': self.source_context.get('source_type')
-        }
-        
-        cursor.execute(sql, (
-            str(self.source_context.get('source_file')) if self.source_context.get('source_file') else None,
-            self.metrics.pipeline_name,
-            stage,
-            json.dumps(metadata)
-        ))
-        
-        self.connection.commit()
+        """Log pipeline stage start using DAO."""
+        self.pipeline_dao.log_stage_start(
+            file_id=self.source_context.get('source_file'),
+            pipeline_name=self.metrics.pipeline_name,
+            stage=stage,
+            source_type=self.source_context.get('source_type'),
+            dataset=self.dataset
+        )
     
     def _log_stage_end(self, stage: str, records_in: int, records_out: int,
                        status: str = 'success', error: Optional[str] = None):
-        """Log pipeline stage completion."""
-        cursor = self.connection.cursor()
-        
-        sql = """
-            UPDATE pipeline_execution
-            SET 
-                completed_at = NOW(),
-                status = %s,
-                records_in = %s,
-                records_out = %s,
-                error_message = %s
-            WHERE pipeline_name = %s 
-              AND stage = %s 
-              AND status = 'running'
-              AND started_at >= NOW() - INTERVAL '1 hour'
-        """
-
-        cursor.execute(sql, (
-            status,
-            records_in,
-            records_out,
-            error,
-            self.metrics.pipeline_name,
-            stage
-        ))
-        
-        self.connection.commit()
+        """Log pipeline stage completion using DAO."""
+        self.pipeline_dao.log_stage_end(
+            pipeline_name=self.metrics.pipeline_name,
+            stage=stage,
+            records_in=records_in,
+            records_out=records_out,
+            status=status,
+            error_message=error
+        )
     
     def _log_quality_metrics(self):
-        """Log data quality check results."""
-        cursor = self.connection.cursor()
-        
+        """Log data quality check results using DAO."""
         # Get validation error samples
-        invalid_records = self.staging.get_invalid_records(
+        invalid_records = self.staging_dao.get_invalid_records(
             file_id=self.source_context.get('source_file')
         )
         
@@ -349,53 +320,29 @@ class DataPipeline:
                     'message': error.get('message')
                 })
         
-        # Log each quality check type
-        for check_type, failures in error_types.items():
-            sql = """
-                INSERT INTO data_quality_checks
-                    (file_id, dataset, check_type, check_name, passed, 
-                     failed_count, total_count, failure_rate, sample_failures)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            
-            failed_count = len(failures)
-            total_count = self.metrics.extract_records
-            failure_rate = (failed_count / total_count * 100) if total_count > 0 else 0
-            
-            cursor.execute(sql, (
-                str(self.source_context.get('source_file')) if self.source_context.get('source_file') else None,
-                self.dataset,
-                check_type,
-                f"{check_type}_validation",
-                failed_count == 0,
-                failed_count,
-                total_count,
-                round(failure_rate, 2),
-                json.dumps(failures[:10])  # Sample first 10 failures
-            ))
+        # Log each quality check type using DAO
+        self.pipeline_dao.log_quality_checks_batch(
+            file_id=self.source_context.get('source_file'),
+            dataset=self.dataset,
+            error_types=error_types,
+            total_count=self.metrics.extract_records
+        )
         
         # Overall quality check
-        sql = """
-            INSERT INTO data_quality_checks
-                (file_id, dataset, check_type, check_name, passed, 
-                 failed_count, total_count, failure_rate, sample_failures)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        
-        cursor.execute(sql, (
-            str(self.source_context.get('source_file')) if self.source_context.get('source_file') else None,
-            self.dataset,
-            'overall',
-            'overall_validation',
-            self.metrics.invalid_records == 0,
-            self.metrics.invalid_records,
-            self.metrics.extract_records,
-            round((self.metrics.invalid_records / self.metrics.extract_records * 100) 
+        self.pipeline_dao.log_quality_check(
+            file_id=self.source_context.get('source_file'),
+            dataset=self.dataset,
+            check_type='overall',
+            check_name='overall_validation',
+            passed=self.metrics.invalid_records == 0,
+            failed_count=self.metrics.invalid_records,
+            total_count=self.metrics.extract_records,
+            failure_rate=round((self.metrics.invalid_records / self.metrics.extract_records * 100) 
                   if self.metrics.extract_records > 0 else 0, 2),
-            json.dumps({'summary': f'{self.metrics.valid_records} valid, {self.metrics.invalid_records} invalid'})
-        ))
+            sample_failures={'summary': f'{self.metrics.valid_records} valid, {self.metrics.invalid_records} invalid'}
+        )
         
-        self.connection.commit()
+        self.dao.commit()
 
 # Deprecated
 def run_csv_pipeline(file_path: str, connection, mapping: Dict[str, Any],
