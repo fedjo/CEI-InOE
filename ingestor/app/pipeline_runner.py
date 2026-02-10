@@ -29,7 +29,7 @@ class PipelineRunner:
     def run(self, envelope: InputEnvelope) -> PipelineMetrics:
         """Execute pipeline for envelope."""
         conn = psycopg2.connect(self.db_dsn)
-        
+
         try:
             # Check duplicates
             if self._is_duplicate(conn, envelope):
@@ -48,10 +48,11 @@ class PipelineRunner:
             
             # Build context
             source_context = {
-                'source_type': envelope.content_type,
+                'source_type': envelope.metadata.get('source_type'),
                 'source_file': file_id,
+                'source_api_endpoint': envelope.source_uri,
                 'device_id': device_id,
-                'ingestion_method': 'batch',
+                'ingestion_method': envelope.content_type,
             }
 
             # Run pipeline

@@ -3,6 +3,7 @@ CEI-InOE Ingestor - Main Entry Point
 Connector-based architecture with APScheduler.
 """
 
+from datetime import datetime, timedelta
 import logging
 import signal
 import sys
@@ -11,6 +12,7 @@ from threading import Event, Thread
 from typing import Dict, List
 
 from apscheduler.schedulers.background import BackgroundScheduler
+import psycopg2
 
 from config import (
     CONNECTOR_CONFIGS,
@@ -57,7 +59,7 @@ class WorkerPool:
         for t in self.workers:
             t.start()
         logger.info(f"Started {len(self.workers)} workers")
-    
+
     def stop(self):
         """Stop workers."""
         self.shutdown_event.set()
@@ -72,12 +74,12 @@ class WorkerPool:
                 envelope: InputEnvelope = self.queue.get(timeout=1)
             except Empty:
                 continue
-            
+
             connector = self.connectors.get(envelope.connector_id)
             if not connector:
                 logger.error(f"Unknown connector: {envelope.connector_id}")
                 continue
-            
+
             try:
                 metrics = self.runner.run(envelope)
                 connector.ack(envelope)
@@ -118,7 +120,7 @@ def make_discover_job(connector: BaseConnector, queue: Queue):
 
 class IngestorApp:
     """Main application."""
-    
+
     def __init__(self):
         self.connectors: Dict[str, BaseConnector] = {}
         self.queue: Queue = Queue(maxsize=QUEUE_MAX_SIZE)
@@ -126,22 +128,28 @@ class IngestorApp:
         self.runner = PipelineRunner(DB_DSN)
         self.worker_pool: WorkerPool = None # type: ignore
         self.shutdown_event = Event()
-    
+
     def setup(self):
         """Initialize components."""
         logger.info("=" * 60)
         logger.info("CEI-InOE Ingestor")
         logger.info("=" * 60)
-        
+
+        # Get DB connection for API connectors
+        db_connection = psycopg2.connect(DB_DSN) if DB_DSN else None
+
         # Create connectors
         for conn_id, config in CONNECTOR_CONFIGS.items():
             if not config.get('enabled', True):
                 continue
-            
-            connector = create_connector(conn_id, config)
+
+            connector = create_connector(conn_id, config, db_connection)
+            if not connector:
+                logger.error(f"Failed to create connector: {conn_id}")
+                continue
             connector.start()
             self.connectors[conn_id] = connector
-            
+
             # Schedule discovery
             interval = config.get('schedule_seconds', 60)
             self.scheduler.add_job(
@@ -150,31 +158,32 @@ class IngestorApp:
                 seconds=interval,
                 id=f"discover_{conn_id}",
                 max_instances=1,
+                next_run_time=datetime.now() + timedelta(seconds=5) # stagger first run
             )
             logger.info(f"Registered: {conn_id} (every {interval}s)")
-        
+
         # Create workers
         self.worker_pool = WorkerPool(NUM_WORKERS, self.queue, self.runner, self.connectors)
-    
+
     def run(self):
         """Start application."""
         self.setup()
-        
+
         signal.signal(signal.SIGTERM, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
-        
+
         self.scheduler.start()
         self.worker_pool.start()
-        
+
         logger.info("Running. Ctrl+C to stop.")
         self.shutdown_event.wait()
         self._shutdown()
-    
+
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
         logger.info(f"Signal {signum}, shutting down...")
         self.shutdown_event.set()
-    
+
     def _shutdown(self):
         """Graceful shutdown."""
         logger.info("Shutting down...")

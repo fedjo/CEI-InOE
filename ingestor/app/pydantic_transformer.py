@@ -98,7 +98,7 @@ class PydanticTransformer:
             mapped_data['source_type'] = SourceType.UNKNOWN
 
         mapped_data['source_file'] = source_context.get('source_file')
-        mapped_data['source_api_endpoint'] = source_context.get('api_endpoint')
+        mapped_data['source_api_endpoint'] = source_context.get('source_api_endpoint')
         mapped_data['source_device_id'] = str(source_context.get('device_id'))
         mapped_data['ingestion_method'] = source_context.get('ingestion_method', 'batch')
         mapped_data['ingested_at'] = datetime.now()
