@@ -61,9 +61,9 @@ ENERGY_API_KEY = os.environ.get('ENERGY_API_KEY', '')
 # Airbeld API Configuration
 # ============================================================================
 
-AIRBELD_API_URL = os.environ.get('AIRBELD_API_URL', 'https://api.airbeld.com/api/v1')
-AIRBELD_EMAIL = os.environ.get('AIRBELD_EMAIL', 'ymar@greensupplychain.eu')
-AIRBELD_PASSWORD = os.environ.get('AIRBELD_PASSWORD', 'hH5j~hy#L]K2q;E')
+AIRBELD_API_URL = os.environ.get('AIRBELD_API_URL', '')
+AIRBELD_EMAIL = os.environ.get('AIRBELD_EMAIL', '')
+AIRBELD_PASSWORD = os.environ.get('AIRBELD_PASSWORD', '')
 AIRBELD_POLL_INTERVAL = int(os.environ.get('AIRBELD_POLL_INTERVAL', '43200'))  # (43200) 12-hours in seconds
 AIRBELD_LOOKBACK_DAYS = int(os.environ.get('AIRBELD_LOOKBACK_DAYS', '1'))
 
