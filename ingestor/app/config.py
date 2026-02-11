@@ -4,7 +4,15 @@ Centralized application configuration loaded from environment variables.
 """
 
 import os
+from pathlib import Path
 from typing import Any, Dict
+
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+# Look for .env in the project root (two levels up from this file)
+_env_path = Path(__file__).resolve().parent.parent.parent / '.env'
+load_dotenv(_env_path)
 
 
 # ============================================================================
@@ -49,6 +57,16 @@ FILE_STABLE_SECONDS = int(os.environ.get('FILE_STABLE_SECONDS', '3'))
 ENERGY_API_URL = os.environ.get('ENERGY_API_URL', 'https://api.example.com')
 ENERGY_API_KEY = os.environ.get('ENERGY_API_KEY', '')
 
+# ============================================================================
+# Airbeld API Configuration
+# ============================================================================
+
+AIRBELD_API_URL = os.environ.get('AIRBELD_API_URL', 'https://api.airbeld.com/api/v1')
+AIRBELD_EMAIL = os.environ.get('AIRBELD_EMAIL', 'ymar@greensupplychain.eu')
+AIRBELD_PASSWORD = os.environ.get('AIRBELD_PASSWORD', 'hH5j~hy#L]K2q;E')
+AIRBELD_POLL_INTERVAL = int(os.environ.get('AIRBELD_POLL_INTERVAL', '43200'))  # (43200) 12-hours in seconds
+AIRBELD_LOOKBACK_DAYS = int(os.environ.get('AIRBELD_LOOKBACK_DAYS', '1'))
+
 
 # ============================================================================
 # Connector Configurations
@@ -64,7 +82,21 @@ CONNECTOR_CONFIGS: Dict[str, Dict[str, Any]] = {
         'schedule_seconds': FILE_POLL_INTERVAL,
         'stable_seconds': FILE_STABLE_SECONDS,
     },
-    
+
+    # Airbeld Environmental API
+    'airbeld_environmental': {
+        'type': 'airbeld',
+        'base_url': AIRBELD_API_URL,
+        'email': AIRBELD_EMAIL,
+        'password': AIRBELD_PASSWORD,
+        'schedule_seconds': AIRBELD_POLL_INTERVAL,
+        'lookback_days': AIRBELD_LOOKBACK_DAYS,
+        'timeout': 30,
+        'mappings_dir': MAPPINGS_DIR,
+        'enabled': bool(AIRBELD_EMAIL and AIRBELD_PASSWORD),
+    },
+}
+
     # Example HTTP connector (uncomment and configure)
     # 'energy_api': {
     #     'type': 'http',
@@ -89,4 +121,3 @@ CONNECTOR_CONFIGS: Dict[str, Dict[str, Any]] = {
     #         },
     #     ],
     # },
-}

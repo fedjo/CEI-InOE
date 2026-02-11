@@ -42,11 +42,11 @@ class StagingManager:
         'energy_daily': 'staging_energy_daily',
         'dairy_production': 'staging_dairy_production'
     }
-    
+
     def __init__(self, connection, dataset: str):
         """
         Initialize staging manager for a dataset.
-        
+
         Args:
             connection: Database connection
             dataset: Dataset name (e.g., 'environmental_metrics')
@@ -56,13 +56,13 @@ class StagingManager:
         if dataset not in self.STAGING_TABLES:
             raise ValueError(f"No staging table configured for dataset: {dataset}")
         self.staging_table = self.STAGING_TABLES[dataset]
-    
+
     def insert_raw(self, file_id: UUID, row_number: int,
                    raw_data: Dict[str, Any]) -> int:
         """Insert raw record into staging table."""
         # Sanitize data to remove NaN/Inf values before JSON serialization
         sanitized_data = sanitize_for_json(raw_data)
-        
+
         sql = f"""
             INSERT INTO {self.staging_table}
                 (file_id, row_number, raw_data, created_at)
@@ -77,13 +77,13 @@ class StagingManager:
             ))
             result = cursor.fetchone()
             return result[0] if result else None # type: ignore
-    
+
     def update_validation(self, staging_id: int, 
                          validation_result: Any,
                          transformed_data: Optional[Dict[str, Any]] = None):
         """
         Update staging record with validation results and transformed data.
-        
+
         Args:
             staging_id: Staging record ID
             validation_result: ValidationResult object
@@ -130,9 +130,9 @@ class StagingManager:
         if file_id:
             sql += " AND file_id = %s"
             params.append(str(file_id))
-        
+
         sql += " ORDER BY row_number"
-        
+
         cursor.execute(sql, params)
         
         records = []
@@ -189,7 +189,7 @@ class StagingManager:
         """
         if not staging_ids:
             return
-        
+
         cursor = self.connection.cursor()
         
         sql = f"""

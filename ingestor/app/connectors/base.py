@@ -59,12 +59,14 @@ class BaseConnector(ABC):
     Does NOT validate or transform business data.
     """
     
-    def __init__(self, connector_id: str, config: Dict[str, Any]):
+    def __init__(self, connector_id: str, config: Dict[str, Any], db_connection=None):
         self.connector_id = connector_id
         self.config = config
         self.status = ConnectorStatus.IDLE
         self._last_error: Optional[str] = None
-    
+        self.db_connection = db_connection
+
+
     @abstractmethod
     def start(self) -> None:
         """Initialize resources."""

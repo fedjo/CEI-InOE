@@ -1,0 +1,82 @@
+dataset: environmental_metrics
+granularity: raw
+
+columns:
+  "timestamp": timestamp
+  "atm_pressure": atm_pressure
+  "noise_level_db": noise_level_db
+  "temperature": temperature
+  "humidity": humidity
+  "pm10": pm10
+  "wind_speed": wind_speed
+  "wind_direction": wind_direction_sectors
+  "wind_angle": wind_angle
+  "pm2p5": pm2p5
+
+coercions:
+  timestamp: datetime
+  atm_pressure: float
+  noise_level_db: float
+  temperature: float
+  humidity: float
+  pm10: float
+  wind_speed: float
+  wind_direction_sectors: float
+  wind_angle: float
+  pm2p5: float
+
+primary_key:
+  - timestamp
+
+# Validation Rules (Phase 1 Refactoring)
+validation_rules:
+  schema:
+    required:
+      - timestamp
+      - temperature
+  
+  constraints:
+    temperature:
+      min: -50
+      max: 60
+    humidity:
+      min: 0
+      max: 100
+    # atm_pressure:
+    #   min: 800
+    #   max: 1100
+    pm10:
+      min: 0
+      max: 1000
+    pm2p5:
+      min: 0
+      max: 500
+    wind_speed:
+      min: 0
+      max: 150
+    wind_angle:
+      min: 0
+      max: 360
+    noise_level_db:
+      min: 0
+      max: 140
+
+# Conflict Resolution Strategy
+conflict_resolution:
+  strategy: update  # update, ignore, fail, append
+  on_columns:
+    - timestamp
+  update_columns:
+    - atm_pressure
+    - noise_level_db
+    - temperature
+    - humidity
+    - pm10
+    - wind_speed
+    - wind_direction_sectors
+    - wind_angle
+    - pm2p5
+
+# Target Configuration
+target_table: environmental_metrics
+staging_table: staging_environmental_metrics
