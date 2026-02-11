@@ -43,6 +43,8 @@ services:
 
   ingestor:
     build: ./ingestor
+    env_file:
+      - .env
     environment:
       DB_DSN: postgres://ocei:ocei@postgres:5432/ocei3
     volumes:
