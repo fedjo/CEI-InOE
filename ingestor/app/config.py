@@ -69,6 +69,16 @@ AIRBELD_LOOKBACK_DAYS = int(os.environ.get('AIRBELD_LOOKBACK_DAYS', '1'))
 
 
 # ============================================================================
+# Tago.io Energy API Configuration
+# ============================================================================
+
+TAGO_API_URL = os.environ.get('TAGO_API_URL', 'https://api.tago.io')
+TAGO_POLL_INTERVAL = int(os.environ.get('TAGO_POLL_INTERVAL', '3600'))  # 1-hour in seconds
+TAGO_LOOKBACK_DAYS = int(os.environ.get('TAGO_LOOKBACK_DAYS', '7'))
+TAGO_ENABLED = os.environ.get('TAGO_ENABLED', 'true').lower() == 'true'
+
+
+# ============================================================================
 # Connector Configurations
 # ============================================================================
 
@@ -95,29 +105,19 @@ CONNECTOR_CONFIGS: Dict[str, Dict[str, Any]] = {
         'mappings_dir': MAPPINGS_DIR,
         'enabled': bool(AIRBELD_EMAIL and AIRBELD_PASSWORD),
     },
+
+    # Tago.io Energy API (hourly consumption)
+    'tago_energy': {
+        'type': 'tago',
+        'base_url': TAGO_API_URL,
+        'schedule_seconds': TAGO_POLL_INTERVAL,
+        'lookback_days': TAGO_LOOKBACK_DAYS,
+        'default_qty': 1000,
+        'timeout': 30,
+        'max_retries': 3,
+        'mappings_dir': MAPPINGS_DIR,
+        'enabled': TAGO_ENABLED,
+    },
 }
 
-    # Example HTTP connector (uncomment and configure)
-    # 'energy_api': {
-    #     'type': 'http',
-    #     'base_url': ENERGY_API_URL,
-    #     'schedule_seconds': 300,
-    #     'auth': {
-    #         'type': 'api_key',
-    #         'api_key_name': 'X-API-Key',
-    #         'api_key_value': ENERGY_API_KEY,
-    #     },
-    #     'endpoints': [
-    #         {
-    #             'id': 'energy_hourly',
-    #             'path': '/v1/readings',
-    #             'data_path': 'data.readings',
-    #             'mapping': f'{MAPPINGS_DIR}/energy_hourly.yaml',
-    #             'device_id': 'energy_meter_1',
-    #             'granularity': 'hourly',
-    #             'use_time_cursor': True,
-    #             'time_param': 'since',
-    #             'timestamp_field': 'timestamp',
-    #         },
-    #     ],
-    # },
+    

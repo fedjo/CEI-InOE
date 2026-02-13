@@ -72,3 +72,33 @@ class EnvironmentalMetricsDAO(BaseDAO):
             (device_id,)
         )
         return result[0] if result and result[0] else None
+
+
+class EnergyMetricsDAO(BaseDAO):
+    """Data access for energy fact tables (read operations for cursor fallback)."""
+
+    def get_max_timestamp(self, device_id: str, granularity: str = 'hourly') -> Optional[datetime]:
+        """
+        Get max timestamp for a device from energy fact table.
+        
+        Args:
+            device_id: External device identifier
+            granularity: 'hourly' or 'daily'
+        
+        Returns:
+            Most recent timestamp or None
+        """
+        # Determine table based on granularity
+        table = 'fact_energy_hourly' if granularity == 'hourly' else 'fact_energy_daily'
+        
+        # Need to resolve device_id to internal id via generic_device
+        result = self.fetch_one(
+            f"""
+            SELECT MAX(fe.ts)
+            FROM {table} fe
+            JOIN generic_device gd ON fe.device_id = gd.id
+            WHERE gd.device_id = %s
+            """,
+            (device_id,)
+        )
+        return result[0] if result and result[0] else None

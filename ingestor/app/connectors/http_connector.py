@@ -415,13 +415,13 @@ class HttpConnector(BaseConnector):
         elif endpoint.pagination.type == 'offset':
             current = self._cursors.get(item_id, 0)
             self._cursors[item_id] = current + len(records)
-            
+
         elif endpoint.use_time_cursor and records and endpoint.timestamp_field:
             # Get max timestamp from records
             timestamps = [r.get(endpoint.timestamp_field) for r in records if r.get(endpoint.timestamp_field)]
             if timestamps:
                 self._cursors[item_id] = max(timestamps) # type: ignore
-    
+
     def _load_cursors(self) -> None:
         """Load cursors from file."""
         if not self.cfg.cursor_file:
@@ -453,7 +453,7 @@ class HttpConnector(BaseConnector):
         endpoint_id = envelope.metadata.get('endpoint_id')
         device_id = envelope.hint_device_id
         cursor_value = envelope.metadata.get('cursor')
-        
+
         if not all([endpoint_id, device_id, cursor_value]):
             return
         
