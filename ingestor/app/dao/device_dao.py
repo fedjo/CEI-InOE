@@ -73,3 +73,37 @@ class DeviceDAO(BaseDAO):
     def get_energy_devices(self) -> List[Dict[str, Any]]:
         """Get all online energy devices."""
         return self.get_devices_by_type('energy', 'online')
+
+    def get_energy_devices_with_token(self) -> List[Dict[str, Any]]:
+        """
+        Get all energy devices with their device tokens.
+        Required for Tago.io API authentication.
+
+        Returns:
+            List of device dictionaries with device_token included
+        """
+        rows = self.fetch_all(
+            """
+            SELECT 
+                device_id,
+                alias,
+                client,
+                metadata->>'device_token' as device_token,
+                metadata
+            FROM generic_device
+            WHERE device_type = 'energy'
+            AND status = 'online'
+            AND metadata->>'device_token' IS NOT NULL
+            """
+        )
+
+        return [
+            {
+                'device_id': row[0],
+                'alias': row[1],
+                'client': row[2],
+                'device_token': row[3],
+                'metadata': row[4],
+            }
+            for row in rows
+        ]

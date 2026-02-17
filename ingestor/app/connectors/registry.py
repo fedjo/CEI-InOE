@@ -8,6 +8,7 @@ from .base import BaseConnector
 from .file_connector import FileConnector
 from .http_connector import HttpConnector
 from .airbeld_connector import AirbeldConnector
+from .tago_connector import TagoConnector
 
 
 # Registry of connector types
@@ -15,6 +16,7 @@ CONNECTOR_TYPES: Dict[str, Type[BaseConnector]] = {
     'file': FileConnector,
     'http': HttpConnector,
     'airbeld': AirbeldConnector,
+    'tago': TagoConnector,
     # Future connectors:
     # 'cyric': CyricConnector,
     # 'mqtt': MqttConnector,
@@ -44,8 +46,10 @@ def create_connector(
         return None
     
     # Pass db_connection to connectors that support it
-    if connector_type in ('http', 'airbeld'):
+    if connector_type in ('http', 'airbeld', 'tago'):
         return connector_class(connector_id, config, db_connection)
+    
+    return connector_class(connector_id, config)
     
     return connector_class(connector_id, config)
 

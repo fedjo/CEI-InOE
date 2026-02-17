@@ -130,7 +130,7 @@ class AirbeldConnector(HttpConnector):
         self._current_external_id = external_id
         
         return super().fetch(item_id)
-    
+
     # -------------------------------------------------------------------------
     # Override: OAuth Authentication
     # -------------------------------------------------------------------------
@@ -285,7 +285,7 @@ class AirbeldConnector(HttpConnector):
         """Get last fetch timestamp from cursor table using DAO."""
         if not self._db_connection:
             return None
-        
+
         try:
             from dao import CursorDAO
             cursor_dao = CursorDAO(self._db_connection)
