@@ -132,7 +132,7 @@ class TagoConnector(HttpConnector):
         # Determine mapping based on variable
         mapping_name = self.VARIABLE_MAP.get(variable_name, 'energy_hourly')
         granularity = 'hourly' if variable_name == 'hourly_consumption' else 'daily'
-        
+
         # Create dynamic endpoint for this device/variable
         endpoint = EndpointConfig(
             id=item_id,
