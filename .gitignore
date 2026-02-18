@@ -101,3 +101,5 @@ node_modules/
 # Ignore Python build artifacts
 __pypackages__/
 
+.env_local
+.env_remote

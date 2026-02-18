@@ -1,0 +1,18 @@
+apiVersion: 1
+
+datasources:
+  - name: grafana-postgresql-datasource
+    type: postgres
+    uid: postgres_default
+    access: proxy
+    url: host.docker.internal:5432
+    database: ocei3
+    user: ocei
+    isDefault: true
+    editable: true
+    secureJsonData:
+      password: ocei
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1500 # 1600 is not yet supported. We also need to reset the version in the UI in order for the datasource to work correctly.
+      timescaledb: false
