@@ -15,8 +15,8 @@ class EnergyHourlyRecord(BaseModel):
     ts: datetime
     kwh: float | None = None
     source_type: str | None = None
-    source_file: UUID | None = None
-    created_at: datetime | None = None
+    ingestion_method: str | None = None
+    ingested_at: datetime | None = None
 
 
 class EnergyDailyRecord(BaseModel):
@@ -29,8 +29,8 @@ class EnergyDailyRecord(BaseModel):
     day: date
     kwh: float | None = None
     source_type: str | None = None
-    source_file: UUID | None = None
-    created_at: datetime | None = None
+    ingestion_method: str | None = None
+    ingested_at: datetime | None = None
 
 
 class EnergyStatsResponse(BaseModel):

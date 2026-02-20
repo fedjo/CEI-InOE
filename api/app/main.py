@@ -1,6 +1,6 @@
 """CEI-InOE Data API - Main Application."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
@@ -8,6 +8,7 @@ import logging
 from app.config import settings, get_cors_origins
 from app.db.connection import get_engine, close_engine
 from app.routers import health, energy, environmental, dairy, devices
+from app.auth import verify_api_key
 
 # Configure logging
 logging.basicConfig(
@@ -69,26 +70,33 @@ app.add_middleware(
 )
 
 # Include routers
+# Health router is public (no auth required)
 app.include_router(health.router, tags=["Health"])
+
+# All data routers require API key
 app.include_router(
     energy.router, 
     prefix="/api/v1/energy", 
-    tags=["Energy"]
+    tags=["Energy"],
+    dependencies=[Depends(verify_api_key)]
 )
 app.include_router(
     environmental.router, 
     prefix="/api/v1/environmental", 
-    tags=["Environmental"]
+    tags=["Environmental"],
+    dependencies=[Depends(verify_api_key)]
 )
 app.include_router(
     dairy.router, 
     prefix="/api/v1/dairy", 
-    tags=["Dairy"]
+    tags=["Dairy"],
+    dependencies=[Depends(verify_api_key)]
 )
 app.include_router(
     devices.router, 
     prefix="/api/v1/devices", 
-    tags=["Devices"]
+    tags=["Devices"],
+    dependencies=[Depends(verify_api_key)]
 )
 
 

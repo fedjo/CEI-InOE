@@ -55,6 +55,8 @@ services:
 
   api:
     build: ./api
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://ocei:ocei@postgres:5432/ocei3
       CORS_ORIGINS: "http://localhost:3000,http://localhost:5173,http://localhost:8080"

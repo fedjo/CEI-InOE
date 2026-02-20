@@ -49,8 +49,8 @@ def get_hourly(
             ts,
             energy_kwh as kwh,
             source_type,
-            source_file,
-            created_at
+            ingestion_method,
+            ingested_at
         FROM fact_energy_hourly
         WHERE {where_clause}
         ORDER BY ts DESC
@@ -104,8 +104,8 @@ def get_daily(
             ts as day,
             energy_kwh as kwh,
             source_type,
-            source_file,
-            created_at
+            ingestion_method,
+            ingested_at
         FROM fact_energy_daily
         WHERE {where_clause}
         ORDER BY ts DESC
@@ -124,7 +124,10 @@ def get_latest_hourly(device_id: int | None = None) -> dict[str, Any] | None:
                 energy_id as id,
                 device_id,
                 ts,
-                energy_kwh as kwh
+                energy_kwh as kwh,
+                source_type,
+                ingestion_method,
+                ingested_at
             FROM fact_energy_hourly
             WHERE device_id = :device_id
             ORDER BY ts DESC
@@ -137,7 +140,10 @@ def get_latest_hourly(device_id: int | None = None) -> dict[str, Any] | None:
                 energy_id as id,
                 device_id,
                 ts,
-                energy_kwh as kwh
+                energy_kwh as kwh,
+                source_type,
+                ingestion_method,
+                ingested_at
             FROM fact_energy_hourly
             ORDER BY ts DESC
             LIMIT 1

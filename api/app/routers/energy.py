@@ -42,7 +42,8 @@ async def get_hourly_energy(
         page=page,
         page_size=page_size
     )
-    
+
+    print(rows[0])
     return PaginatedResponse.create(
         data=[EnergyHourlyRecord(**row) for row in rows],
         total=total,
