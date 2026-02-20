@@ -19,7 +19,7 @@ def get_hourly(
     Returns:
         Tuple of (records, total_count)
     """
-    conditions = ["ts >= %(start_date)s", "ts < %(end_date)s + INTERVAL '1 day'"]
+    conditions = ["ts >= :start_date", "ts < :end_date + INTERVAL '1 day'"]
     params: dict[str, Any] = {
         "start_date": start_date,
         "end_date": end_date,
@@ -28,7 +28,7 @@ def get_hourly(
     }
     
     if device_id is not None:
-        conditions.append("device_id = %(device_id)s")
+        conditions.append("device_id = :device_id")
         params["device_id"] = device_id
     
     where_clause = " AND ".join(conditions)
@@ -54,7 +54,7 @@ def get_hourly(
         FROM fact_energy_hourly
         WHERE {where_clause}
         ORDER BY ts DESC
-        LIMIT %(limit)s OFFSET %(offset)s
+        LIMIT :limit OFFSET :offset
     """
     rows = execute_query(data_query, params)
     
@@ -74,7 +74,7 @@ def get_daily(
     Returns:
         Tuple of (records, total_count)
     """
-    conditions = ["ts >= %(start_date)s", "ts <= %(end_date)s"]
+    conditions = ["ts >= :start_date", "ts <= :end_date"]
     params: dict[str, Any] = {
         "start_date": start_date,
         "end_date": end_date,
@@ -83,7 +83,7 @@ def get_daily(
     }
     
     if device_id is not None:
-        conditions.append("device_id = %(device_id)s")
+        conditions.append("device_id = :device_id")
         params["device_id"] = device_id
     
     where_clause = " AND ".join(conditions)
@@ -109,7 +109,7 @@ def get_daily(
         FROM fact_energy_daily
         WHERE {where_clause}
         ORDER BY ts DESC
-        LIMIT %(limit)s OFFSET %(offset)s
+        LIMIT :limit OFFSET :offset
     """
     rows = execute_query(data_query, params)
     
@@ -126,7 +126,7 @@ def get_latest_hourly(device_id: int | None = None) -> dict[str, Any] | None:
                 ts,
                 energy_kwh as kwh
             FROM fact_energy_hourly
-            WHERE device_id = %(device_id)s
+            WHERE device_id = :device_id
             ORDER BY ts DESC
             LIMIT 1
         """

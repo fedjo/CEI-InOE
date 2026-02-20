@@ -9,6 +9,7 @@ from app.db.connection import execute_query, execute_one, execute_count
 def get_metrics(
     start_date: date,
     end_date: date,
+    source_device_id: str | None = None,
     page: int = 1,
     page_size: int = 100
 ) -> tuple[list[dict[str, Any]], int]:
@@ -18,6 +19,7 @@ def get_metrics(
     Returns:
         Tuple of (records, total_count)
     """
+    conditions = ["timestamp >= :start_date", "timestamp < :end_date + INTERVAL '1 day'"]
     params: dict[str, Any] = {
         "start_date": start_date,
         "end_date": end_date,
@@ -25,7 +27,11 @@ def get_metrics(
         "offset": (page - 1) * page_size
     }
     
-    where_clause = "timestamp >= %(start_date)s AND timestamp < %(end_date)s + INTERVAL '1 day'"
+    if source_device_id:
+        conditions.append("source_device_id = :source_device_id")
+        params["source_device_id"] = source_device_id
+    
+    where_clause = " AND ".join(conditions)
     
     # Get total count
     count_query = f"""
@@ -49,13 +55,14 @@ def get_metrics(
             wind_speed,
             wind_angle,
             wind_direction_sectors,
+            source_device_id,
             source_type,
             source_file,
             created_at
         FROM environmental_metrics
         WHERE {where_clause}
         ORDER BY timestamp DESC
-        LIMIT %(limit)s OFFSET %(offset)s
+        LIMIT :limit OFFSET :offset
     """
     rows = execute_query(data_query, params)
     

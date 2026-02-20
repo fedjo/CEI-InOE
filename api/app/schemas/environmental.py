@@ -21,6 +21,7 @@ class EnvironmentalMetricRecord(BaseModel):
     wind_speed: float | None = None
     wind_angle: float | None = None
     wind_direction_sectors: float | None = None
+    source_device_id: str | None = None
     source_type: str | None = None
     source_file: UUID | None = None
     created_at: datetime | None = None

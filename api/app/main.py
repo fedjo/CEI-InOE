@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from app.config import settings, get_cors_origins
-from app.db.connection import get_pool, close_pool
+from app.db.connection import get_engine, close_engine
 from app.routers import health, energy, environmental, dairy, devices
 
 # Configure logging
@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting CEI-InOE Data API...")
     try:
-        get_pool()  # Initialize connection pool
+        get_engine()  # Initialize connection pool
         logger.info("Database connection pool initialized")
     except Exception as e:
         logger.error(f"Failed to initialize database pool: {e}")
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down CEI-InOE Data API...")
-    close_pool()
+    close_engine()
     logger.info("Database connection pool closed")
 
 

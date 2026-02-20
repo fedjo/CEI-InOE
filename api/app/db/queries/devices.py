@@ -24,11 +24,11 @@ def get_devices(
     }
     
     if device_type:
-        conditions.append("device_type = %(device_type)s")
+        conditions.append("device_type = :device_type")
         params["device_type"] = device_type
     
     if status:
-        conditions.append("status = %(status)s")
+        conditions.append("status = :status")
         params["status"] = status
     
     where_clause = " AND ".join(conditions)
@@ -58,7 +58,7 @@ def get_devices(
         FROM generic_device
         WHERE {where_clause}
         ORDER BY created_at DESC
-        LIMIT %(limit)s OFFSET %(offset)s
+        LIMIT :limit OFFSET :offset
     """
     rows = execute_query(data_query, params)
     
@@ -81,7 +81,7 @@ def get_device_by_id(device_id: int) -> dict[str, Any] | None:
             created_at,
             updated_at
         FROM generic_device
-        WHERE id = %(id)s
+        WHERE id = :id
     """
     return execute_one(query, {"id": device_id})
 

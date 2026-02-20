@@ -25,11 +25,11 @@ def get_production(
     }
     
     if start_date:
-        conditions.append("production_date >= %(start_date)s")
+        conditions.append("production_date >= :start_date")
         params["start_date"] = start_date
     
     if end_date:
-        conditions.append("production_date <= %(end_date)s")
+        conditions.append("production_date <= :end_date")
         params["end_date"] = end_date
     
     where_clause = " AND ".join(conditions)
@@ -60,7 +60,7 @@ def get_production(
         FROM dairy_production
         WHERE {where_clause}
         ORDER BY production_date DESC
-        LIMIT %(limit)s OFFSET %(offset)s
+        LIMIT :limit OFFSET :offset
     """
     rows = execute_query(data_query, params)
     
