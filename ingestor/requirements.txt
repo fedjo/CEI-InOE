@@ -1,12 +1,24 @@
+# Core dependencies
 watchdog==6.0.0
-psycopg2-binary==2.9.11
 pandas==2.3.3
 pyyaml==6.0.3
 openpyxl==3.1.5
-scikit-learn==1.8.0
-matplotlib==3.10.8
-apscheduler>=3.10.0
 pydantic>=2.0
-pytest>=7.0
 requests>=2.31.0
 python-dotenv>=1.0.0
+apscheduler>=3.10.0
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.11
+alembic>=1.13.0
+
+# Shared package (editable install)
+-e ../shared
+
+# Analysis (optional)
+scikit-learn==1.8.0
+matplotlib==3.10.8
+
+# Testing
+pytest>=7.0
