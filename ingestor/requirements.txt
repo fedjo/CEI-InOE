@@ -14,7 +14,7 @@ psycopg2-binary==2.9.11
 alembic>=1.13.0
 
 # Shared package (editable install)
--e ../shared
+-e ./shared
 
 # Analysis (optional)
 scikit-learn==1.8.0

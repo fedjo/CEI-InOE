@@ -6,11 +6,11 @@ pydantic-settings==2.5.2
 
 # Database
 sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.11
 alembic>=1.13.0
 
 # Shared package (editable install)
--e ../shared
+-e  ./shared
 
 # Auth & Utils
 python-dotenv==1.0.1
