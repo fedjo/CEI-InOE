@@ -34,8 +34,8 @@ class TagoConnector(HttpConnector):
     Connector for Tago.io energy API.
     
     Features:
-    - Per-device token authentication (token from DB metadata)
-    - Per-device dynamic endpoints (devices loaded from DB)
+    - Per-datasource token authentication (token from DB metadata)
+    - Per-datasource dynamic endpoints (datasources loaded from DB)
     - Incremental fetching with date cursors
     - Transforms Tago.io response to energy records
     
@@ -67,7 +67,7 @@ class TagoConnector(HttpConnector):
         http_config = {
             'type': 'http',
             'base_url': self.tago_cfg.base_url,
-            'endpoints': [],  # Will be populated dynamically per device
+            'endpoints': [],  # Will be populated dynamically per datasource
             'auth': {'type': 'none'},  # Auth via device-token header
             'timeout': self.tago_cfg.timeout,
             'max_retries': self.tago_cfg.max_retries,
@@ -76,22 +76,22 @@ class TagoConnector(HttpConnector):
         }
         
         super().__init__(connector_id, http_config, db_connection)
-        self._devices: List[Dict[str, Any]] = []
-        self._current_device: Optional[Dict[str, Any]] = None
+        self._datasources: List[Dict[str, Any]] = []
+        self._current_datasource: Optional[Dict[str, Any]] = None
     
     def start(self) -> None:
-        """Initialize and load energy devices from DB."""
+        """Initialize and load energy datasources from DB."""
         super().start()
-        self._load_devices()
-        logger.info(f"[{self.connector_id}] Loaded {len(self._devices)} energy devices")
-    
+        self._load_datasources()
+        logger.info(f"[{self.connector_id}] Loaded {len(self._datasources)} energy devices")
+
     def discover(self) -> List[str]:
         """
         Return device endpoint IDs for hourly consumption.
         Format: {device_id}:hourly_consumption
         """
         endpoints = []
-        for device in self._devices:
+        for device in self._datasources:
             device_token = device.get('device_token')
             if device_token:
                 endpoints.append(f"{device['device_id']}:hourly_consumption")
@@ -112,22 +112,22 @@ class TagoConnector(HttpConnector):
             logger.error(f"[{self.connector_id}] Invalid item_id format: {item_id}")
             return None
         
-        device_id, variable_name = parts
+        datasource_ext_id, variable_name = parts
         
-        device = self._get_device(device_id)
-        if not device:
-            logger.error(f"[{self.connector_id}] Unknown device: {device_id}")
+        datasource = self._get_datasource(datasource_ext_id)
+        if not datasource:
+            logger.error(f"[{self.connector_id}] Unknown device: {datasource_ext_id}")
             return None
 
-        device_token = device.get('device_token')
+        device_token = datasource.get('device_token')
         if not device_token:
-            logger.error(f"[{self.connector_id}] No device_token for device {device_id}")
+            logger.error(f"[{self.connector_id}] No device_token for device {datasource_ext_id}")
             return None
         
-        self._current_device = device
+        self._current_datasource = datasource
         
         # Get date range for fetch
-        start_date, end_date = self._get_date_range(device_id, variable_name)
+        start_date, end_date = self._get_date_range(datasource_ext_id, variable_name)
         
         # Determine mapping based on variable
         mapping_name = self.VARIABLE_MAP.get(variable_name, 'energy_hourly')
@@ -149,7 +149,7 @@ class TagoConnector(HttpConnector):
             },
             data_path='result',  # Extract from response.result
             mapping=f"{self.tago_cfg.mappings_dir}/api_{mapping_name}.yaml",
-            device_id=device_id,
+            datasource_id=datasource_ext_id,
             granularity=granularity,
             use_time_cursor=True,
             timestamp_field='ts',
@@ -222,7 +222,7 @@ class TagoConnector(HttpConnector):
         return {
             'endpoint_id': item_id,
             'device_id': device_id,
-            'device_token': self._current_device.get('device_token') if self._current_device else None,
+            'device_token': self._current_datasource.get('device_token') if self._current_datasource else None,
             'variable': getattr(self, '_current_variable', None),
             'start_date': getattr(self, '_current_start_date', datetime.now()).isoformat(),
             'end_date': getattr(self, '_current_end_date', datetime.now()).isoformat(),
@@ -236,27 +236,38 @@ class TagoConnector(HttpConnector):
     # Device Management
     # -------------------------------------------------------------------------
     
-    def _load_devices(self) -> None:
-        """Load energy devices from database using DAO."""
+    def _load_datasources(self) -> None:
+        """Load energy datasources from database using DAO."""
         if not self._db_connection:
-            logger.warning(f"[{self.connector_id}] No DB connection, using empty device list")
-            self._devices = []
+            logger.warning(f"[{self.connector_id}] No DB connection, using empty datasource list")
+            self._datasources = []
             return
         
         try:
-            from dao import DeviceDAO
-            device_dao = DeviceDAO(self._db_connection)
-            self._devices = device_dao.get_energy_devices_with_token()
-            logger.debug(f"[{self.connector_id}] Loaded devices: {[d['device_id'] for d in self._devices]}")
+            from dao import DatasourceDAO
+            datasource_dao = DatasourceDAO(self._db_connection)
+            datasources = datasource_dao.get_energy_datasources_with_token()
+            # Map to datasource-like format for backward compatibility
+            self._datasources = [
+                {
+                    'external_id': ds['external_id'],
+                    'alias': ds.get('alias'),
+                    'client': ds.get('client'),
+                    'device_token': ds.get('device_token'),
+                    'metadata': ds.get('metadata', {}),
+                }
+                for ds in datasources
+            ]
+            logger.debug(f"[{self.connector_id}] Loaded datasources: {[d['external_id'] for d in self._datasources]}")
             
         except Exception as e:
-            logger.error(f"[{self.connector_id}] Failed to load devices: {e}")
-            self._devices = []
+            logger.error(f"[{self.connector_id}] Failed to load datasources: {e}")
+            self._datasources = []
     
-    def _get_device(self, device_id: str) -> Optional[Dict[str, Any]]:
-        """Find device by ID."""
-        for d in self._devices:
-            if d['device_id'] == device_id:
+    def _get_datasource(self, external_id: str) -> Optional[Dict[str, Any]]:
+        """Find datasource by external ID."""
+        for d in self._datasources:
+            if d['external_id'] == external_id:
                 return d
         return None
     
@@ -264,7 +275,7 @@ class TagoConnector(HttpConnector):
     # Date Range / Cursor Management
     # -------------------------------------------------------------------------
     
-    def _get_date_range(self, device_id: str, variable_name: str) -> tuple[datetime, datetime]:
+    def _get_date_range(self, datasource_id: str, variable_name: str) -> tuple[datetime, datetime]:
         """
         Get start and end dates for fetch.
         
@@ -278,15 +289,15 @@ class TagoConnector(HttpConnector):
         end_date = datetime.now(timezone.utc)
         
         # Build endpoint_id for cursor lookup
-        endpoint_id = f"{device_id}:{variable_name}"
+        endpoint_id = f"{datasource_id}:{variable_name}"
         
         # Try to get last cursor from database
-        start_date = self._get_cursor_from_db(device_id, endpoint_id)
+        start_date = self._get_cursor_from_db(datasource_id, endpoint_id)
         
         if not start_date:
             # Fallback: query max timestamp from data table
             granularity = 'hourly' if variable_name == 'hourly_consumption' else 'daily'
-            start_date = self._get_max_timestamp_from_data(device_id, granularity)
+            start_date = self._get_max_timestamp_from_data(datasource_id, granularity)
         
         if not start_date:
             # Default: use lookback
@@ -299,7 +310,7 @@ class TagoConnector(HttpConnector):
         
         return start_date, end_date
     
-    def _get_cursor_from_db(self, device_id: str, endpoint_id: str) -> Optional[datetime]:
+    def _get_cursor_from_db(self, datasource_id: str, endpoint_id: str) -> Optional[datetime]:
         """Get last fetch timestamp from cursor table using DAO."""
         if not self._db_connection:
             return None
@@ -310,22 +321,22 @@ class TagoConnector(HttpConnector):
             return cursor_dao.get_cursor(
                 connector_id=self.connector_id,
                 endpoint_id=endpoint_id,
-                device_id=device_id
+                datasource_id=datasource_id
             )
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Cursor table query failed: {e}")
             return None
     
-    def _get_max_timestamp_from_data(self, device_id: str, granularity: str) -> Optional[datetime]:
+    def _get_max_timestamp_from_data(self, datasource_id: str, granularity: str) -> Optional[datetime]:
         """Fallback: get max timestamp from energy fact table using DAO."""
         if not self._db_connection:
             return None
         
         try:
-            from dao.cursor_dao import EnergyMetricsDAO
-            energy_dao = EnergyMetricsDAO(self._db_connection)
-            return energy_dao.get_max_timestamp(device_id, granularity)
+            from dao import CursorDAO
+            cursor_dao = CursorDAO(self._db_connection)
+            return cursor_dao.get_max_energy_timestamp(datasource_id, granularity)
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Energy table query failed: {e}")

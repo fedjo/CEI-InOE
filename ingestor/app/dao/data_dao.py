@@ -27,8 +27,8 @@ class DataDAO(BaseCoreDAO):
     # Map dataset names to model classes
     FINAL_MODELS = {
         'environmental_metrics': EnvironmentalMetrics,
-        'energy_hourly': FactEnergyHourly,
-        'energy_daily': FactEnergyDaily,
+        'fact_energy_hourly': FactEnergyHourly,
+        'fact_energy_daily': FactEnergyDaily,
         'dairy_production': DairyProduction,
     }
 
@@ -53,7 +53,7 @@ class DataDAO(BaseCoreDAO):
             True if inserted/updated, False if skipped
         """
         table = self.get_table(dataset)
-        
+
         # Remove internal fields
         record = {k: v for k, v in record.items() if not k.startswith('_')}
         

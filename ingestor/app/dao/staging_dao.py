@@ -7,6 +7,7 @@ Handles staging table operations for data validation pipeline.
 import json
 import logging
 import math
+from datetime import datetime, date, time
 from typing import Any, Optional
 from uuid import UUID
 
@@ -27,11 +28,18 @@ def sanitize_for_json(obj: Any) -> Any:
     """
     Recursively sanitize an object for JSON serialization.
     Converts NaN, Inf, -Inf to None.
+    Converts datetime/date/time objects to ISO format strings.
     """
     if isinstance(obj, dict):
         return {k: sanitize_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [sanitize_for_json(item) for item in obj]
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, date):
+        return obj.isoformat()
+    elif isinstance(obj, time):
+        return obj.isoformat()
     elif isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):
             return None
@@ -98,16 +106,19 @@ class StagingDAO(BaseCoreDAO):
 
     def get_valid_records(self, batch_id: Optional[UUID] = None) -> list[dict]:
         """Retrieve valid records ready for loading."""
-        stmt = select(self.table).where(
+        stmt = select(
+            self.table.c.staging_id,
+            self.table.c.transformed_data
+        ).where(
             self.table.c.is_valid == True,
             self.table.c.loaded_to_final == False
         )
-        
+
         if batch_id:
             stmt = stmt.where(self.table.c.batch_id == batch_id)
-        
+
         stmt = stmt.order_by(self.table.c.row_number)
-        
+
         rows = self.fetch_all(stmt)
         return [dict(row._mapping) for row in rows]
 

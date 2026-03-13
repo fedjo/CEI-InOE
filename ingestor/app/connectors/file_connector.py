@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from pydantic import BaseModel
 
+from models import SourceType
+
 from .base import BaseConnector, ConnectorStatus, InputEnvelope
 
 logger = logging.getLogger(__name__)
@@ -102,7 +104,7 @@ class FileConnector(BaseConnector):
 
             # Detect content type
             ext = os.path.splitext(fname)[1].lower()
-            content_type = "excel" if ext in {'.xlsx', '.xls'} else "csv"
+            content_type = SourceType.EXCEL if ext in {'.xlsx', '.xls'} else SourceType.CSV
 
             # Read content
             content = self._read_file(path, content_type)
@@ -121,7 +123,7 @@ class FileConnector(BaseConnector):
                 content=content,
                 content_type=content_type,
                 hint_mapping=hints.get('mapping'),
-                hint_device_id=hints.get('device_id'),
+                hint_datasource_id=hints.get('datasource_id'),
                 hint_granularity=hints.get('granularity'),
                 metadata={
                     'file_name': fname,
@@ -240,23 +242,23 @@ class FileConnector(BaseConnector):
             # Detect by columns
             if (cols & {'pm10', 'pm2p5', 'humidity', 'temperature', 'atm_pressure'} or \
                 any ('µg/m' in c or 'hpa' in c.lower() for c in df.columns)):
-                mapping, device_id = 'environmental_metrics', 'testweather2'
+                mapping, datasource_id = 'environmental_metrics', 'testweather2'
             elif (cols & {'nr. animals', 'feed efficiency', 'rumination'} or \
                 any('production' in c and 'cow' in c for c in cols)):
-                mapping, device_id = 'dairy_production', 'lelyna'
+                mapping, datasource_id = 'dairy_production', 'lelyna'
             elif {'date and time'} & cols and len(df.columns) == 2:
                 second_col = [c for c in df.columns if c.lower() != 'date and time'][0]
                 mapping = 'energy_hourly' if 'hourly' in second_col.lower() else 'energy_daily'
                 m = re.match(r'^([a-f0-9]{20,})-', fname)
-                device_id = m.group(1) if m else None
+                datasource_id = m.group(1) if m else None
             else:
-                mapping, device_id = None, None
+                mapping, datasource_id = None, None
 
             granularity, start_date, end_date = self._detect_time_info(path, content_type)
             
             return {
                 'mapping': f"{self.mappings_dir}/{mapping}.yaml" if mapping else None,
-                'device_id': device_id,
+                'datasource_id': datasource_id,
                 'granularity': granularity or 'daily',
                 'start_date': start_date,
                 'end_date': end_date,

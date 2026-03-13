@@ -345,7 +345,7 @@ def process_with_pipeline(
         content=records,
         content_type='json',
         hint_mapping=mapping_file,
-        hint_device_id=device_id,
+        hint_datasource_id=device_id,
         hint_granularity=granularity,
         metadata={
             'source_type': 'api',

@@ -29,10 +29,11 @@ class InputEnvelope(BaseModel):
     received_at: datetime = Field(default_factory=datetime.now)
     content: Any  # Raw data: List[Dict], bytes
     content_type: str  # "csv", "excel", "json"
-    
+
     # Pipeline hints
     hint_mapping: Optional[str] = None
-    hint_device_id: Optional[str] = None
+    hint_datasource_id: Optional[str] = None
+    hint_data_type: Optional[str] = None
     hint_granularity: Optional[str] = None
     
     # Provenance

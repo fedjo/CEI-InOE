@@ -48,7 +48,7 @@ class Datasource(Base):
     __tablename__ = "datasource"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    external_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, 
+    external_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False,
                                               comment="External identifier (API ID, serial number, etc.)")
     
     # Classification
@@ -82,10 +82,6 @@ class Datasource(Base):
     
     __table_args__ = (
         Index("idx_datasource_external_id", "external_id"),
-        Index("idx_datasource_category", "source_category"),
-        Index("idx_datasource_data_type", "data_type"),
-        Index("idx_datasource_client", "client"),
-        Index("idx_datasource_status", "status"),
         Index("idx_datasource_metadata", "metadata", postgresql_using="gin"),
     )
 
@@ -109,7 +105,7 @@ class IngestBatch(Base):
     
     # Linked datasource (optional)
     datasource_id: Mapped[Optional[int]] = mapped_column(ForeignKey("datasource.id"))
-    
+
     # File-specific (optional)
     file_sha256: Mapped[Optional[str]] = mapped_column(String(64), unique=True,
                                                         comment="File hash for deduplication")
@@ -159,25 +155,21 @@ class FactEnergyHourly(Base):
     __tablename__ = "fact_energy_hourly"
 
     energy_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    datasource_id: Mapped[int] = mapped_column(ForeignKey("datasource.id"), nullable=False)
-    ts: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    ts: Mapped[datetime] = mapped_column(DateTime, nullable=False, unique=True)
     energy_kwh: Mapped[float] = mapped_column(Float, nullable=False)
-    
+
     # Source tracking
     source_type: Mapped[str] = mapped_column(String(32), default="csv")
     source_batch_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True), 
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
-    ingestion_method: Mapped[str] = mapped_column(String(32), default="batch")
-    
+
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint("datasource_id", "ts", name="uq_energy_hourly_datasource_ts"),
-        Index("idx_energy_hourly_datasource_ts", "datasource_id", "ts"),
         Index("idx_energy_hourly_source", "source_type", "source_device_id"),
         Index("idx_energy_hourly_batch", "source_batch_id"),
     )
@@ -188,25 +180,21 @@ class FactEnergyDaily(Base):
     __tablename__ = "fact_energy_daily"
 
     energy_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    datasource_id: Mapped[int] = mapped_column(ForeignKey("datasource.id"), nullable=False)
-    ts: Mapped[date] = mapped_column(Date, nullable=False)
+    ts: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
     energy_kwh: Mapped[float] = mapped_column(Float, nullable=False)
-    
+
     # Source tracking
     source_type: Mapped[str] = mapped_column(String(32), default="csv")
     source_batch_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True),
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
-    ingestion_method: Mapped[str] = mapped_column(String(32), default="batch")
-    
+
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
-        UniqueConstraint("datasource_id", "ts", name="uq_energy_daily_datasource_ts"),
-        Index("idx_energy_daily_datasource_ts", "datasource_id", "ts"),
         Index("idx_energy_daily_source", "source_type", "source_device_id"),
         Index("idx_energy_daily_batch", "source_batch_id"),
     )
@@ -236,8 +224,7 @@ class EnvironmentalMetrics(Base):
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
-    ingestion_method: Mapped[str] = mapped_column(String(32), default="batch")
-    
+
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -273,8 +260,7 @@ class DairyProduction(Base):
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
-    ingestion_method: Mapped[str] = mapped_column(String(32), default="batch")
-    
+
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -364,8 +350,8 @@ class ApiFetchCursor(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     connector_id: Mapped[str] = mapped_column(Text, nullable=False)
     endpoint_id: Mapped[str] = mapped_column(Text, nullable=False)
-    device_id: Mapped[str] = mapped_column(Text, nullable=False)
-    
+    datasource_id: Mapped[Optional[int]] = mapped_column(ForeignKey("datasource.id"))
+
     # Cursor state
     last_fetch_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_fetch_success: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -377,9 +363,9 @@ class ApiFetchCursor(Base):
                                                   onupdate=func.now())
 
     __table_args__ = (
-        UniqueConstraint("connector_id", "endpoint_id", "device_id", 
-                        name="uq_api_cursor_connector_endpoint_device"),
-        Index("idx_api_cursor_lookup", "connector_id", "endpoint_id", "device_id"),
+        UniqueConstraint("connector_id", "endpoint_id", "datasource_id",
+                        name="uq_api_cursor_connector_endpoint_datasource"),
+        Index("idx_api_cursor_lookup", "connector_id", "endpoint_id", "datasource_id"),
     )
 
 

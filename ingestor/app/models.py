@@ -35,11 +35,9 @@ class BaseRecord(BaseModel):
     """
 
     # Source metadata (injected during transformation, not from raw data)
-    source_type: Optional[SourceType] = None
-    source_file: Optional[UUID] = None
+    source_type: Optional[SourceType] = SourceType.UNKNOWN
     source_api_endpoint: Optional[str] = None
     source_device_id: Optional[str] = None
-    ingestion_method: Optional[str] = "batch"
     ingested_at: Optional[datetime] = None
 
     model_config = ConfigDict(
@@ -162,14 +160,12 @@ class EnergyHourlyRecord(BaseRecord):
     Pydantic model for fact_energy_hourly table.
 
     Database schema:
-        - device_id: INTEGER FK (injected after validation)
         - ts: TIMESTAMP NOT NULL
         - energy_kwh: FLOAT NOT NULL
         - source_file: UUID FK
     """
     ts: datetime
     energy_kwh: float = Field(ge=0, le=10000, description="Hourly energy consumption in kWh")
-    device_id: Optional[int] = None  # FK to device table, injected after validation
 
     @field_validator('ts', mode='before')
     @classmethod
@@ -192,15 +188,13 @@ class EnergyDailyRecord(BaseRecord):
     Pydantic model for fact_energy_daily table.
 
     Database schema:
-        - device_id: INTEGER FK (injected after validation)
         - ts: DATE NOT NULL
         - energy_kwh: FLOAT NOT NULL
         - source_file: UUID FK
     """
     ts: date
     energy_kwh: float = Field(ge=0, le=100000, description="Daily energy consumption in kWh")
-    device_id: Optional[int] = None  # FK to device table, injected after validation
-    
+
     @field_validator('ts', mode='before')
     @classmethod
     def validate_ts(cls, v):

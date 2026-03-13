@@ -235,16 +235,27 @@ class AirbeldConnector(HttpConnector):
     # -------------------------------------------------------------------------
     
     def _load_devices(self) -> None:
-        """Load weather devices from database using DAO."""
+        """Load weather datasources from database using DAO."""
         if not self._db_connection:
             logger.warning(f"[{self.connector_id}] No DB connection, using empty device list")
             self._devices = []
             return
         
         try:
-            from dao import DeviceDAO
-            device_dao = DeviceDAO(self._db_connection)
-            self._devices = device_dao.get_weather_devices()
+            from dao import DatasourceDAO
+            datasource_dao = DatasourceDAO(self._db_connection)
+            datasources = datasource_dao.get_weather_datasources()
+            # Map to device-like format for backward compatibility
+            self._devices = [
+                {
+                    'device_id': ds['external_id'],
+                    'alias': ds.get('alias'),
+                    'client': ds.get('client'),
+                    'external_id': ds.get('metadata_', {}).get('external_id') if ds.get('metadata_') else ds['external_id'],
+                    'metadata': ds.get('metadata_', {}),
+                }
+                for ds in datasources
+            ]
             
         except Exception as e:
             logger.error(f"[{self.connector_id}] Failed to load devices: {e}")
@@ -305,9 +316,9 @@ class AirbeldConnector(HttpConnector):
             return None
         
         try:
-            from dao.cursor_dao import EnvironmentalMetricsDAO
-            metrics_dao = EnvironmentalMetricsDAO(self._db_connection)
-            return metrics_dao.get_max_timestamp(device_id)
+            from dao import CursorDAO
+            cursor_dao = CursorDAO(self._db_connection)
+            return cursor_dao.get_max_environmental_timestamp(device_id)
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Data table query failed: {e}")

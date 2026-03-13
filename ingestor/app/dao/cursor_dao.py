@@ -28,10 +28,10 @@ class CursorDAO(BaseCoreDAO):
         self,
         connector_id: str,
         endpoint_id: str,
-        device_id: str
+        datasource_id: str
     ) -> datetime | None:
         """
-        Get last fetch timestamp for a device/endpoint combination.
+        Get last fetch timestamp for a datasource/endpoint combination.
 
         Returns:
             Last fetch timestamp or None if no cursor exists
@@ -39,7 +39,7 @@ class CursorDAO(BaseCoreDAO):
         stmt = select(self.table.c.last_fetch_timestamp).where(
             self.table.c.connector_id == connector_id,
             self.table.c.endpoint_id == endpoint_id,
-            self.table.c.device_id == device_id
+            self.table.c.datasource_id == datasource_id
         )
         return self.scalar(stmt)
 
@@ -47,7 +47,7 @@ class CursorDAO(BaseCoreDAO):
         self,
         connector_id: str,
         endpoint_id: str,
-        device_id: str,
+        datasource_id: str,
         timestamp: datetime
     ):
         """
@@ -58,7 +58,7 @@ class CursorDAO(BaseCoreDAO):
         stmt = pg_insert(self.table).values(
             connector_id=connector_id,
             endpoint_id=endpoint_id,
-            device_id=device_id,
+            datasource_id=datasource_id,
             last_fetch_timestamp=timestamp,
             last_fetch_success=func.now(),
             fetch_count=1
@@ -66,7 +66,7 @@ class CursorDAO(BaseCoreDAO):
 
         # On conflict, update timestamp and increment count
         stmt = stmt.on_conflict_do_update(
-            constraint='uq_api_cursor_connector_endpoint_device',
+            constraint='uq_api_cursor_connector_endpoint_datasource',
             set_={
                 'last_fetch_timestamp': timestamp,
                 'last_fetch_success': func.now(),
@@ -90,7 +90,7 @@ class CursorDAO(BaseCoreDAO):
         stmt = stmt.order_by(
             self.table.c.connector_id,
             self.table.c.endpoint_id,
-            self.table.c.device_id
+            self.table.c.datasource_id
         )
         
         rows = self.fetch_all(stmt)
@@ -100,7 +100,7 @@ class CursorDAO(BaseCoreDAO):
         self,
         connector_id: str,
         endpoint_id: str,
-        device_id: str
+        datasource_id: str
     ) -> bool:
         """Delete a specific cursor. Returns True if deleted."""
         from sqlalchemy import delete
@@ -108,7 +108,7 @@ class CursorDAO(BaseCoreDAO):
         stmt = delete(self.table).where(
             self.table.c.connector_id == connector_id,
             self.table.c.endpoint_id == endpoint_id,
-            self.table.c.device_id == device_id
+            self.table.c.datasource_id == datasource_id
         )
         
         result = self.execute(stmt)
@@ -124,3 +124,54 @@ class CursorDAO(BaseCoreDAO):
         
         result = self.execute(stmt)
         return result.rowcount
+
+    # -------------------------------------------------------------------------
+    # Fallback Queries (for cursor recovery from data tables)
+    # -------------------------------------------------------------------------
+
+    def get_max_environmental_timestamp(self, datasource_id: str) -> datetime | None:
+        """
+        Get max timestamp from environmental_metrics for cursor fallback.
+        
+        Args:
+            datasource_id: Internal datasource identifier
+            
+        Returns:
+            Most recent timestamp or None
+        """
+        from shared import EnvironmentalMetrics
+        from sqlalchemy import select, func
+        
+        table = EnvironmentalMetrics.__table__
+        stmt = select(func.max(table.c.timestamp)).where(
+            table.c.source_device_id == datasource_id
+        )
+        return self.scalar(stmt)
+
+    def get_max_energy_timestamp(self, datasource_id: str, granularity: str = 'hourly') -> datetime | None:
+        """
+        Get max timestamp from energy fact table for cursor fallback.
+        
+        Args:
+            datasource_id: Internal datasource identifier
+            granularity: 'hourly' or 'daily'
+            
+        Returns:
+            Most recent timestamp or None
+        """
+        from shared import FactEnergyHourly, FactEnergyDaily, Datasource
+        from sqlalchemy import select, func
+        
+        # Choose table based on granularity
+        Model = FactEnergyHourly if granularity == 'hourly' else FactEnergyDaily
+        table = Model.__table__
+        datasource_table = Datasource.__table__
+        
+        # Join with datasource to resolve external_id to internal id
+        stmt = select(func.max(table.c.ts)).select_from(
+            table.join(datasource_table, table.c.datasource_id == datasource_table.c.id)
+        ).where(
+            datasource_table.c.id == datasource_id
+        )
+        
+        return self.scalar(stmt)

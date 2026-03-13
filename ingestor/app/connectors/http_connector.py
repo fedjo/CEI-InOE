@@ -40,7 +40,7 @@ class EndpointConfig(BaseModel):
     body: Optional[Dict[str, Any]] = None
     data_path: str = ""
     mapping: Optional[str] = None
-    device_id: Optional[str] = None
+    datasource_id: Optional[str] = None
     granularity: Optional[str] = None
     pagination: PaginationConfig = PaginationConfig()
     use_time_cursor: bool = False
@@ -181,7 +181,7 @@ class HttpConnector(BaseConnector):
                 content=records,
                 content_type='json',
                 hint_mapping=endpoint.mapping,
-                hint_device_id=endpoint.device_id,
+                hint_data_type=endpoint.data_type,
                 hint_granularity=endpoint.granularity,
                 metadata=self._build_metadata(item_id, records, endpoint)
             )
@@ -310,7 +310,7 @@ class HttpConnector(BaseConnector):
     
     def _make_request(
         self, 
-        endpoint: EndpointConfig, 
+        endpoint: EndpointConfig,
         url: str, 
         params: Dict[str, Any],
         headers: Dict[str, str]
@@ -451,20 +451,20 @@ class HttpConnector(BaseConnector):
             return
         
         endpoint_id = envelope.metadata.get('endpoint_id')
-        device_id = envelope.hint_device_id
+        datasource_id = envelope.hint_datasource_id
         cursor_value = envelope.metadata.get('cursor')
 
-        if not all([endpoint_id, device_id, cursor_value]):
+        if not all([endpoint_id, datasource_id, cursor_value]):
             return
         
         try:
             from dao import CursorDAO
             cursor_dao = CursorDAO(self._db_connection)
-            cursor_dao.upsert_cursor(
+            cursor_dao.update_cursor(
                 connector_id=self.connector_id,
                 endpoint_id=endpoint_id,
-                device_id=device_id,
-                last_fetch_timestamp=cursor_value
+                datasource_id=datasource_id,
+                timestamp=cursor_value
             )
         except Exception as e:
             logger.warning(f"[{self.connector_id}] Failed to save cursor to DB: {e}")

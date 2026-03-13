@@ -76,16 +76,3 @@ __all__ = [
     'DAOFactory',
     'sanitize_for_json',
 ]
-
-    def scalar(self, statement) -> Any | None:
-        """Execute and return scalar value."""
-        result = self.execute(statement)
-        return result.scalar()
-
-    def commit(self):
-        """Commit transaction."""
-        self._connection.commit()
-
-    def rollback(self):
-        """Rollback transaction."""
-        self._connection.rollback()

@@ -101,10 +101,13 @@ class DataPipeline:
         
         # Pipeline DAO for logging
         self.pipeline_dao = self.dao.pipeline
+
+        # Track execution IDs for stage logging
+        self._stage_execution_ids: dict[str, int] = {}
         
         # Metrics
         self.metrics = PipelineMetrics(
-            file_id=source_context.get('source_file'),
+            file_id=source_context.get('source_batch_id'),
             pipeline_name=f"{self.dataset}_pipeline"
         )
     
@@ -122,19 +125,19 @@ class DataPipeline:
         
         try:
             # Stage 1: Extract (already done - just count)
-            self._log_stage_start('extract')
             self.metrics.extract_records = len(raw_records)
+            self._log_stage_start('extract', self.metrics.extract_records)
             self._log_stage_end('extract', self.metrics.extract_records,
                               self.metrics.extract_records)
 
             # Stage 2: Validate & Transform & Stage
-            self._log_stage_start('validate')
+            self._log_stage_start('validate', self.metrics.extract_records)
             self._validate_and_stage(raw_records)
             self._log_stage_end('validate', self.metrics.extract_records,
                               self.metrics.valid_records)
 
             # Stage 3: Load valid records
-            self._log_stage_start('load')
+            self._log_stage_start('load', self.metrics.valid_records)
             self._load_to_final()
             self._log_stage_end('load', self.metrics.valid_records,
                               self.metrics.load_records)
@@ -174,7 +177,7 @@ class DataPipeline:
 
             # Insert to staging (raw) using DAO
             staging_id = self.staging_dao.insert_raw(
-                file_id=self.source_context.get('source_file'), # type: ignore
+                batch_id=self.source_context.get('source_batch_id'),
                 row_number=row_number,
                 raw_data=raw_record
             )
@@ -237,7 +240,7 @@ class DataPipeline:
         
         # Get valid records from staging using DAO
         valid_records = self.staging_dao.get_valid_records(
-            file_id=self.source_context.get('source_file')
+            batch_id=self.source_context.get('source_batch_id')
         )
         
         if not valid_records:
@@ -248,15 +251,13 @@ class DataPipeline:
         loaded_staging_ids = []
 
         for record in valid_records:
-            staging_id = record.pop('_staging_id')
+            staging_id = record['staging_id']
+            data = record['transformed_data']
+            data['source_batch_id'] = self.source_context.get('source_batch_id')
             
             try:
-                # Add device_id if applicable
-                if 'energy' in str(self.target_table) and 'device_id' not in record:
-                    record['device_id'] = self.device_id
-                
                 # Insert with conflict resolution using DataDAO
-                success = self.data_dao.insert_record(self.target_table, record)
+                success = self.data_dao.insert_record(self.target_table, data)
                 
                 if success:
                     self.metrics.load_records += 1
@@ -277,37 +278,41 @@ class DataPipeline:
         
         self.metrics.load_duration = (datetime.now() - load_start).total_seconds()
     
-    def _log_stage_start(self, stage: str):
+    def _log_stage_start(self, stage: str, records_in: int = 0):
         """Log pipeline stage start using DAO."""
-        self.pipeline_dao.log_stage_start(
-            file_id=self.source_context.get('source_file'),
-            pipeline_name=self.metrics.pipeline_name,
-            stage=stage,
-            source_type=self.source_context.get('source_type'),
-            dataset=self.dataset
-        )
-    
+        batch_id = self.source_context.get('source_batch_id')
+        if batch_id:
+            execution_id = self.pipeline_dao.start_stage(
+                batch_id=batch_id,
+                pipeline_name=self.metrics.pipeline_name,
+                stage=stage,
+                records_in=records_in
+            )
+            self._stage_execution_ids[stage] = execution_id
+
     def _log_stage_end(self, stage: str, records_in: int, records_out: int,
                        status: str = 'success', error: Optional[str] = None):
         """Log pipeline stage completion using DAO."""
-        self.pipeline_dao.log_stage_end(
-            pipeline_name=self.metrics.pipeline_name,
-            stage=stage,
-            records_in=records_in,
-            records_out=records_out,
-            status=status,
-            error_message=error
-        )
-    
+        execution_id = self._stage_execution_ids.get(stage)
+        if execution_id:
+            self.pipeline_dao.complete_stage(
+                execution_id=execution_id,
+                status=status,
+                records_out=records_out,
+                error_message=error
+            )
+
     def _log_quality_metrics(self):
         """Log data quality check results using DAO."""
+        batch_id = self.source_context.get('source_batch_id')
+        if not batch_id:
+            return
+        
         # Get validation error samples
-        invalid_records = self.staging_dao.get_invalid_records(
-            file_id=self.source_context.get('source_file')
-        )
+        invalid_records = self.staging_dao.get_invalid_records(batch_id=batch_id)
         
         # Group errors by type
-        error_types = {}
+        error_types: dict[str, list] = {}
         for record in invalid_records[:100]:  # Sample first 100
             errors = record.get('validation_errors', {}).get('errors', [])
             for error in errors:
@@ -319,29 +324,33 @@ class DataPipeline:
                     'field': error.get('field'),
                     'message': error.get('message')
                 })
-        
+
         # Log each quality check type using DAO
-        self.pipeline_dao.log_quality_checks_batch(
-            file_id=self.source_context.get('source_file'),
-            dataset=self.dataset,
-            error_types=error_types,
-            total_count=self.metrics.extract_records
-        )
+        for check_type, failures in error_types.items():
+            failed_count = len(failures)
+            self.pipeline_dao.record_quality_check(
+                batch_id=batch_id,
+                dataset=self.dataset,
+                check_type=check_type,
+                check_name=f"{check_type}_validation",
+                passed=failed_count == 0,
+                failed_count=failed_count,
+                total_count=self.metrics.extract_records,
+                sample_failures=failures[:10] if failures else None
+            )
         
         # Overall quality check
-        self.pipeline_dao.log_quality_check(
-            file_id=self.source_context.get('source_file'),
+        self.pipeline_dao.record_quality_check(
+            batch_id=batch_id,
             dataset=self.dataset,
             check_type='overall',
             check_name='overall_validation',
             passed=self.metrics.invalid_records == 0,
             failed_count=self.metrics.invalid_records,
             total_count=self.metrics.extract_records,
-            failure_rate=round((self.metrics.invalid_records / self.metrics.extract_records * 100) 
-                  if self.metrics.extract_records > 0 else 0, 2),
-            sample_failures={'summary': f'{self.metrics.valid_records} valid, {self.metrics.invalid_records} invalid'}
+            sample_failures=[{'summary': f'{self.metrics.valid_records} valid, {self.metrics.invalid_records} invalid'}]
         )
-        
+
         self.dao.commit()
 
 # Deprecated
@@ -437,7 +446,7 @@ def run_api_pipeline(api_records: List[Dict[str, Any]], connection,
         'device_id': device_id,
         'ingestion_method': 'streaming'
     }
-    
+
     # Run pipeline
     pipeline = DataPipeline(connection, mapping, source_context)
     return pipeline.execute(api_records)

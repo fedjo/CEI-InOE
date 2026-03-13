@@ -24,7 +24,7 @@ CONNECTOR_TYPES: Dict[str, Type[BaseConnector]] = {
 
 
 def create_connector(
-    connector_id: str, 
+    connector_id: str,
     config: Dict[str, Any],
     db_connection=None
 ) -> Optional[BaseConnector]:
@@ -51,8 +51,6 @@ def create_connector(
     
     return connector_class(connector_id, config)
     
-    return connector_class(connector_id, config)
-
 
 def list_connector_types() -> list[str]:
     """Return available connector types."""

@@ -9,9 +9,6 @@ coercions:
   ts: datetime
   energy_kwh: float
 
-primary_key:
-  - device_id
-  - ts
 # Validation Rules (Phase 1 Refactoring)
 validation_rules:
   schema:
@@ -28,7 +25,6 @@ validation_rules:
 conflict_resolution:
   strategy: update
   on_columns:
-    - device_id
     - ts
   update_columns:
     - energy_kwh
