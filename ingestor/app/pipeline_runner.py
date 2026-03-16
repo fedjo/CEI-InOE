@@ -77,9 +77,9 @@ class PipelineRunner:
                 # Run pipeline
                 pipeline = DataPipeline(conn, mapping, source_context)
                 metrics = pipeline.execute(envelope.content)
-                
+
                 # Update batch with metrics and status
-                dao.ingest_batch.update_status(batch_id, 'completed')
+                dao.ingest_batch.update_status(batch_id, 'completed', metrics.load_records, metrics.invalid_records)
                 quality = (
                     round(metrics.valid_records / metrics.extract_records * 100, 2)
                     if metrics.extract_records > 0 else 0

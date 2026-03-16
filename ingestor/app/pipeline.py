@@ -299,7 +299,10 @@ class DataPipeline:
                 execution_id=execution_id,
                 status=status,
                 records_out=records_out,
-                error_message=error
+                error_message=error,
+                metadata={
+                    'dataset': self.dataset
+                }
             )
 
     def _log_quality_metrics(self):
