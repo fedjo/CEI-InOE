@@ -4,12 +4,14 @@ WORKDIR /app
 
 # Install dependencies
 COPY api/requirements.txt .
-COPY shared/ /app/shared/
-
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY shared/ /app/shared/
+RUN pip install --no-cache-dir -e /app/shared/  # Install shared code as a package
+
+
 # Copy application
-COPY api/app/ ./app/
+COPY api/app/ .
 
 EXPOSE 8000
 
