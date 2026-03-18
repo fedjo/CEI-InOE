@@ -6,6 +6,8 @@ Provides SQLAlchemy models and Pydantic schemas shared between api/ and ingestor
 
 from shared.models import (
     Base,
+    SiteType,
+    Site,
     Datasource,
     IngestBatch,
     FactEnergyHourly,
@@ -22,6 +24,10 @@ from shared.models import (
 )
 
 from shared.schemas import (
+    GeoJSONPoint,
+    SiteRead,
+    SiteCreate,
+    SiteUpdate,
     DatasourceRead,
     DatasourceCreate,
     DatasourceUpdate,
@@ -51,10 +57,13 @@ from shared.database import (
     create_all_tables,
 )
 
+
 __all__ = [
     # Base
     "Base",
     # Models
+    "SiteType",
+    "Site",
     "Datasource",
     "IngestBatch",
     "FactEnergyHourly",
@@ -69,6 +78,10 @@ __all__ = [
     "StagingEnergyDaily",
     "StagingDairyProduction",
     # Schemas
+    "GeoJSONPoint",
+    "SiteRead",
+    "SiteCreate",
+    "SiteUpdate",
     "DatasourceRead",
     "DatasourceCreate",
     "DatasourceUpdate",

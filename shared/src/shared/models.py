@@ -10,8 +10,11 @@ from datetime import datetime, date
 from typing import Optional
 from uuid import uuid4
 
+import enum
+
 from sqlalchemy import (
     Column,
+    Enum,
     Integer,
     String,
     Float,
@@ -35,8 +38,53 @@ class Base(DeclarativeBase):
 
 
 # =============================================================================
+# Site Type Enum
+# =============================================================================
+
+class SiteType(str, enum.Enum):
+    """Predefined types of sites."""
+    DAIRY_FARM = "dairy_farm"
+    FACTORY = "factory"
+    OTHER = "other"
+
+
+# =============================================================================
 # Core Tables
 # =============================================================================
+
+class Site(Base):
+    """
+    Represents a physical site where the application is deployed.
+
+    Populated from the configuration file on application startup.
+    """
+    __tablename__ = "site"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    location: Mapped[dict] = mapped_column(JSONB, nullable=False,
+                                            comment="GeoJSON coordinates")
+    site_type: Mapped[SiteType] = mapped_column(
+        Enum(SiteType, name="site_type_enum", native_enum=False),
+        nullable=False,
+    )
+    owner: Mapped[dict] = mapped_column(JSONB, nullable=False,
+                                         comment="Owner details (person or organisation)")
+    administrator_email: Mapped[str] = mapped_column(String(255), nullable=False,
+                                                      comment="Email of the site administrator")
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
+                                                  onupdate=func.now())
+
+    # Relationships
+    datasources: Mapped[list["Datasource"]] = relationship(back_populates="site")
+
+    __table_args__ = (
+        Index("idx_site_name", "name"),
+    )
+
 
 class Datasource(Base):
     """
@@ -72,12 +120,17 @@ class Datasource(Base):
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, default=dict,
                                             comment="Type-specific configuration and metadata")
     
+    # Site reference
+    site_id: Mapped[Optional[int]] = mapped_column(ForeignKey("site.id"),
+                                                    comment="Site this datasource belongs to")
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
                                                   onupdate=func.now())
 
     # Relationships
+    site: Mapped[Optional["Site"]] = relationship(back_populates="datasources")
     ingest_batches: Mapped[list["IngestBatch"]] = relationship(back_populates="datasource")
     
     __table_args__ = (

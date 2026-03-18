@@ -11,6 +11,55 @@ from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+from shared.models import SiteType
+
+
+# =============================================================================
+# GeoJSON Coordinate Schema
+# =============================================================================
+
+class GeoJSONPoint(BaseModel):
+    """GeoJSON Point geometry."""
+    type: str = Field("Point", pattern=r"^Point$")
+    coordinates: list[float] = Field(..., min_length=2, max_length=3,
+                                      description="[longitude, latitude] or [longitude, latitude, altitude]")
+
+
+# =============================================================================
+# Site Schemas
+# =============================================================================
+
+class SiteBase(BaseModel):
+    """Base schema for site."""
+    name: str
+    location: GeoJSONPoint
+    site_type: SiteType
+    owner: dict[str, Any] = Field(..., description="Owner details (person or organisation)")
+    administrator_email: str = Field(..., description="Email of the site administrator")
+
+
+class SiteCreate(SiteBase):
+    """Schema for creating a site."""
+    pass
+
+
+class SiteRead(SiteBase):
+    """Schema for reading a site."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class SiteUpdate(BaseModel):
+    """Schema for updating a site."""
+    name: Optional[str] = None
+    location: Optional[GeoJSONPoint] = None
+    site_type: Optional[SiteType] = None
+    owner: Optional[dict[str, Any]] = None
+    administrator_email: Optional[str] = None
+
 
 # =============================================================================
 # Datasource Schemas
@@ -31,6 +80,7 @@ class DatasourceBase(BaseModel):
         default=None,
         validation_alias=AliasChoices("metadata_", "metadata"),
     )
+    site_id: Optional[int] = None
 
 
 class DatasourceCreate(DatasourceBase):

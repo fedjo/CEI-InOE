@@ -65,7 +65,7 @@ AIRBELD_API_URL = os.environ.get('AIRBELD_API_URL', '')
 AIRBELD_EMAIL = os.environ.get('AIRBELD_EMAIL', '')
 AIRBELD_PASSWORD = os.environ.get('AIRBELD_PASSWORD', '')
 AIRBELD_POLL_INTERVAL = int(os.environ.get('AIRBELD_POLL_INTERVAL', '43200'))  # (43200) 12-hours in seconds
-AIRBELD_LOOKBACK_DAYS = int(os.environ.get('AIRBELD_LOOKBACK_DAYS', '1'))
+AIRBELD_LOOKBACK_DAYS = int(os.environ.get('AIRBELD_LOOKBACK_DAYS', '7'))
 
 
 # ============================================================================
@@ -76,6 +76,14 @@ TAGO_API_URL = os.environ.get('TAGO_API_URL', 'https://api.tago.io')
 TAGO_POLL_INTERVAL = int(os.environ.get('TAGO_POLL_INTERVAL', '3600'))  # 1-hour in seconds
 TAGO_LOOKBACK_DAYS = int(os.environ.get('TAGO_LOOKBACK_DAYS', '7'))
 TAGO_ENABLED = os.environ.get('TAGO_ENABLED', 'true').lower() == 'true'
+
+
+# ============================================================================
+# Site Configuration
+# ============================================================================
+
+# Path to site YAML config file (absolute or relative to working directory)
+SITE_CONFIG_PATH = os.environ.get('SITE_CONFIG_PATH', '/app/conf/site_config.yaml')
 
 
 # ============================================================================

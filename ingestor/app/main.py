@@ -20,6 +20,7 @@ from config import (
     LOG_LEVEL,
     NUM_WORKERS,
     QUEUE_MAX_SIZE,
+    SITE_CONFIG_PATH,
 )
 from connectors import BaseConnector, InputEnvelope, create_connector
 from pipeline_runner import DuplicateInputError, PipelineRunner
@@ -133,6 +134,18 @@ class IngestorApp:
         logger.info("=" * 60)
         logger.info("CEI-InOE Ingestor")
         logger.info("=" * 60)
+
+        # Initialise site from YAML config
+        if SITE_CONFIG_PATH:
+            try:
+                from site_init import init_site_from_yaml
+                init_site_from_yaml(SITE_CONFIG_PATH)
+            except FileNotFoundError:
+                logger.info("Site config not found at %s — skipping", SITE_CONFIG_PATH)
+            except Exception as e:
+                logger.warning(f"Could not initialise site: {e}")
+        else:
+            logger.info("SITE_CONFIG_PATH not set — skipping site initialisation")
 
         # Create connectors
         for conn_id, config in CONNECTOR_CONFIGS.items():
