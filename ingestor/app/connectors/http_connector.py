@@ -14,6 +14,8 @@ from pydantic import BaseModel
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from models import SourceType
+
 from .base import BaseConnector, ConnectorStatus, InputEnvelope
 
 logger = logging.getLogger(__name__)
@@ -88,10 +90,9 @@ class HttpConnector(BaseConnector):
     Subclass this for API-specific implementations.
     """
     
-    def __init__(self, connector_id: str, config: Dict[str, Any], db_connection=None):
+    def __init__(self, connector_id: str, config: Dict[str, Any]):
         super().__init__(connector_id, config)
         self.cfg = HttpConnectorConfig(**config)
-        self._db_connection = db_connection
         self._cursors: Dict[str, Any] = {}
         self._last_request_time: float = 0
         self._session: Optional[requests.Session] = None
@@ -139,11 +140,11 @@ class HttpConnector(BaseConnector):
         """Return enabled endpoint IDs."""
         return [ep.id for ep in self.cfg.endpoints if ep.enabled]
 
-    def fetch(self, item_id: str) -> Optional[InputEnvelope]:
+    def fetch(self, ext_id: str) -> Optional[InputEnvelope]:
         """Fetch data from endpoint."""
-        endpoint = self._get_endpoint(item_id)
+        endpoint = self._get_endpoint(ext_id)
         if not endpoint:
-            logger.error(f"[{self.connector_id}] Unknown endpoint: {item_id}")
+            logger.error(f"[{self.connector_id}] Unknown endpoint: {ext_id}")
             return None
 
         try:
@@ -163,15 +164,15 @@ class HttpConnector(BaseConnector):
             records = self._extract_records(data, endpoint)
 
             if not records:
-                logger.debug(f"[{self.connector_id}] No records from {item_id}")
+                logger.debug(f"[{self.connector_id}] No records from {ext_id}")
                 return None
 
             # Transform records if needed (subclasses override)
             records = self._transform_records(records, endpoint)
 
-            self._update_cursor(item_id, data, records, endpoint)
+            self._update_cursor(ext_id, data, records, endpoint)
 
-            input_id = self._compute_input_id(item_id, records)
+            input_id = self._compute_input_id(ext_id, records)
 
             envelope = InputEnvelope(
                 connector_id=self.connector_id,
@@ -179,23 +180,22 @@ class HttpConnector(BaseConnector):
                 source_uri=url,
                 received_at=datetime.now(),
                 content=records,
-                content_type='json',
+                content_type=SourceType.JSON.value,
                 hint_mapping=endpoint.mapping,
-                hint_data_type=endpoint.data_type,
                 hint_granularity=endpoint.granularity,
-                metadata=self._build_metadata(item_id, records, endpoint)
+                metadata=self._build_metadata(ext_id, records, endpoint)
             )
 
-            logger.info(f"[{self.connector_id}] Fetched {len(records)} records from {item_id}")
+            logger.info(f"[{self.connector_id}] Fetched {len(records)} records from {ext_id}")
             return envelope
 
         except requests.exceptions.HTTPError as e:
             self._last_error = f"HTTP {e.response.status_code}"
-            logger.error(f"[{self.connector_id}] HTTP error {item_id}: {e}")
+            logger.error(f"[{self.connector_id}] HTTP error {ext_id}: {e}")
             return None
         except Exception as e:
             self._last_error = str(e)
-            logger.error(f"[{self.connector_id}] Fetch error {item_id}: {e}")
+            logger.error(f"[{self.connector_id}] Fetch error {ext_id}: {e}")
             return None
 
     def ack(self, envelope: InputEnvelope) -> None:
@@ -447,25 +447,25 @@ class HttpConnector(BaseConnector):
     
     def _save_cursor_to_db(self, envelope: InputEnvelope) -> None:
         """Save cursor to database using DAO."""
-        if not self._db_connection:
-            return
-        
         endpoint_id = envelope.metadata.get('endpoint_id')
         datasource_id = envelope.hint_datasource_id
         cursor_value = envelope.metadata.get('cursor')
-
+        print(f"Saving cursor to DB: endpoint={endpoint_id}, datasource={datasource_id}, cursor={cursor_value}")
         if not all([endpoint_id, datasource_id, cursor_value]):
             return
-        
+
         try:
+            from shared import get_connection
             from dao import CursorDAO
-            cursor_dao = CursorDAO(self._db_connection)
-            cursor_dao.update_cursor(
-                connector_id=self.connector_id,
-                endpoint_id=endpoint_id,
-                datasource_id=datasource_id,
-                timestamp=cursor_value
-            )
+            
+            with get_connection() as conn:
+                cursor_dao = CursorDAO(conn)
+                cursor_dao.update_cursor(
+                    connector_id=self.connector_id,
+                    endpoint_id=endpoint_id,
+                    datasource_id=datasource_id,
+                    timestamp=cursor_value
+                )
         except Exception as e:
             logger.warning(f"[{self.connector_id}] Failed to save cursor to DB: {e}")
     

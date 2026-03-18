@@ -26,7 +26,6 @@ CONNECTOR_TYPES: Dict[str, Type[BaseConnector]] = {
 def create_connector(
     connector_id: str,
     config: Dict[str, Any],
-    db_connection=None
 ) -> Optional[BaseConnector]:
     """
     Create a connector instance based on config type.
@@ -34,8 +33,7 @@ def create_connector(
     Args:
         connector_id: Unique identifier for the connector
         config: Connector configuration dict (must include 'type')
-        db_connection: Optional database connection for API connectors
-    
+
     Returns:
         Connector instance or None if type unknown
     """
@@ -44,10 +42,6 @@ def create_connector(
     connector_class = CONNECTOR_TYPES.get(connector_type)
     if not connector_class:
         return None
-    
-    # Pass db_connection to connectors that support it
-    if connector_type in ('http', 'airbeld', 'tago'):
-        return connector_class(connector_id, config, db_connection)
     
     return connector_class(connector_id, config)
     

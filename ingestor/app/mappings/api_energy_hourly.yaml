@@ -35,7 +35,7 @@ validation_rules:
 conflict_resolution:
   strategy: update
   on_columns:
-    - device_id
+    - source_batch_id
     - ts
   update_columns:
     - energy_kwh

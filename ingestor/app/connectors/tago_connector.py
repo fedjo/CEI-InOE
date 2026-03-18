@@ -59,7 +59,7 @@ class TagoConnector(HttpConnector):
         'diffday': 'energy_daily',
     }
     
-    def __init__(self, connector_id: str, config: Dict[str, Any], db_connection=None):
+    def __init__(self, connector_id: str, config: Dict[str, Any]):
         # Parse Tago-specific config
         self.tago_cfg = TagoConnectorConfig(**config)
         
@@ -75,7 +75,7 @@ class TagoConnector(HttpConnector):
             'enabled': self.tago_cfg.enabled,
         }
         
-        super().__init__(connector_id, http_config, db_connection)
+        super().__init__(connector_id, http_config)
         self._datasources: List[Dict[str, Any]] = []
         self._current_datasource: Optional[Dict[str, Any]] = None
     
@@ -91,15 +91,15 @@ class TagoConnector(HttpConnector):
         Format: {device_id}:hourly_consumption
         """
         endpoints = []
-        for device in self._datasources:
-            device_token = device.get('device_token')
+        for ds in self._datasources:
+            device_token = ds.get('device_token')
             if device_token:
-                endpoints.append(f"{device['device_id']}:hourly_consumption")
+                endpoints.append(f"{ds['external_id']}:hourly_consumption")
                 # Uncomment to enable daily consumption as well:
-                # endpoints.append(f"{device['device_id']}:diffday")
+                # endpoints.append(f"{ds['external_id']}:diffday")
         return endpoints
-    
-    def fetch(self, item_id: str) -> Optional[Any]:
+
+    def fetch(self, ext_id: str) -> Optional[Any]:
         """
         Fetch energy data for a device/variable combination.
         
@@ -107,9 +107,9 @@ class TagoConnector(HttpConnector):
             item_id: Format "{device_id}:{variable_name}" e.g. "68f1fb6550bcae000b4c2501:hourly_consumption"
         """
         # Parse item_id
-        parts = item_id.split(':')
+        parts = ext_id.split(':')
         if len(parts) != 2:
-            logger.error(f"[{self.connector_id}] Invalid item_id format: {item_id}")
+            logger.error(f"[{self.connector_id}] Invalid item_id format: {ext_id}")
             return None
         
         datasource_ext_id, variable_name = parts
@@ -135,7 +135,7 @@ class TagoConnector(HttpConnector):
 
         # Create dynamic endpoint for this device/variable
         endpoint = EndpointConfig(
-            id=item_id,
+            id=ext_id,
             path='/data',
             method='GET',
             params={
@@ -164,7 +164,7 @@ class TagoConnector(HttpConnector):
         self._current_end_date = end_date
         self._current_variable = variable_name
         
-        return super().fetch(item_id)
+        return super().fetch(ext_id)
     
     # -------------------------------------------------------------------------
     # Override: Data Transformation
@@ -238,27 +238,25 @@ class TagoConnector(HttpConnector):
     
     def _load_datasources(self) -> None:
         """Load energy datasources from database using DAO."""
-        if not self._db_connection:
-            logger.warning(f"[{self.connector_id}] No DB connection, using empty datasource list")
-            self._datasources = []
-            return
-        
         try:
+            from shared import get_connection
             from dao import DatasourceDAO
-            datasource_dao = DatasourceDAO(self._db_connection)
-            datasources = datasource_dao.get_energy_datasources_with_token()
-            # Map to datasource-like format for backward compatibility
-            self._datasources = [
-                {
-                    'external_id': ds['external_id'],
-                    'alias': ds.get('alias'),
-                    'client': ds.get('client'),
-                    'device_token': ds.get('device_token'),
-                    'metadata': ds.get('metadata', {}),
-                }
-                for ds in datasources
-            ]
-            logger.debug(f"[{self.connector_id}] Loaded datasources: {[d['external_id'] for d in self._datasources]}")
+            
+            with get_connection() as conn:
+                datasource_dao = DatasourceDAO(conn)
+                datasources = datasource_dao.get_energy_datasources_with_token()
+                # Map to datasource-like format for backward compatibility
+                self._datasources = [
+                    {
+                        'external_id': ds['external_id'],
+                        'alias': ds.get('alias'),
+                        'client': ds.get('client'),
+                        'device_token': ds.get('device_token'),
+                        'metadata': ds.get('metadata', {}),
+                    }
+                    for ds in datasources
+                ]
+                logger.debug(f"[{self.connector_id}] Loaded datasources: {[d['external_id'] for d in self._datasources]}")
             
         except Exception as e:
             logger.error(f"[{self.connector_id}] Failed to load datasources: {e}")
@@ -307,22 +305,22 @@ class TagoConnector(HttpConnector):
             # Start from last fetch + 1 hour to avoid duplicates
             start_date = start_date + timedelta(hours=1)
             logger.debug(f"[{self.connector_id}] Resuming from cursor: {start_date}")
-        
+
         return start_date, end_date
     
     def _get_cursor_from_db(self, datasource_id: str, endpoint_id: str) -> Optional[datetime]:
         """Get last fetch timestamp from cursor table using DAO."""
-        if not self._db_connection:
-            return None
-        
         try:
+            from shared import get_connection
             from dao import CursorDAO
-            cursor_dao = CursorDAO(self._db_connection)
-            return cursor_dao.get_cursor(
-                connector_id=self.connector_id,
-                endpoint_id=endpoint_id,
-                datasource_id=datasource_id
-            )
+            
+            with get_connection() as conn:
+                cursor_dao = CursorDAO(conn)
+                return cursor_dao.get_cursor(
+                    connector_id=self.connector_id,
+                    endpoint_id=endpoint_id,
+                    datasource_id=datasource_id
+                )
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Cursor table query failed: {e}")
@@ -330,13 +328,13 @@ class TagoConnector(HttpConnector):
     
     def _get_max_timestamp_from_data(self, datasource_id: str, granularity: str) -> Optional[datetime]:
         """Fallback: get max timestamp from energy fact table using DAO."""
-        if not self._db_connection:
-            return None
-        
         try:
+            from shared import get_connection
             from dao import CursorDAO
-            cursor_dao = CursorDAO(self._db_connection)
-            return cursor_dao.get_max_energy_timestamp(datasource_id, granularity)
+            
+            with get_connection() as conn:
+                cursor_dao = CursorDAO(conn)
+                return cursor_dao.get_max_energy_timestamp(datasource_id, granularity)
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Energy table query failed: {e}")

@@ -60,12 +60,11 @@ class BaseConnector(ABC):
     Does NOT validate or transform business data.
     """
     
-    def __init__(self, connector_id: str, config: Dict[str, Any], db_connection=None):
+    def __init__(self, connector_id: str, config: Dict[str, Any]):
         self.connector_id = connector_id
         self.config = config
         self.status = ConnectorStatus.IDLE
         self._last_error: Optional[str] = None
-        self.db_connection = db_connection
 
 
     @abstractmethod
@@ -84,7 +83,7 @@ class BaseConnector(ABC):
         pass
     
     @abstractmethod
-    def fetch(self, item_id: str) -> Optional[InputEnvelope]:
+    def fetch(self, ext_id: str) -> Optional[InputEnvelope]:
         """Fetch and wrap item into InputEnvelope."""
         pass
     

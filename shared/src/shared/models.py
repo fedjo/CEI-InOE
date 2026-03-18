@@ -155,7 +155,7 @@ class FactEnergyHourly(Base):
     __tablename__ = "fact_energy_hourly"
 
     energy_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    ts: Mapped[datetime] = mapped_column(DateTime, nullable=False, unique=True)
+    ts: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     energy_kwh: Mapped[float] = mapped_column(Float, nullable=False)
 
     # Source tracking
@@ -170,6 +170,8 @@ class FactEnergyHourly(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
+        UniqueConstraint("source_batch_id", "ts", name="uq_energy_hourly_batch_ts"),
+        Index("idx_energy_hourly_ts", "ts"),
         Index("idx_energy_hourly_source", "source_type", "source_device_id"),
         Index("idx_energy_hourly_batch", "source_batch_id"),
     )
@@ -180,7 +182,7 @@ class FactEnergyDaily(Base):
     __tablename__ = "fact_energy_daily"
 
     energy_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    ts: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
+    ts: Mapped[date] = mapped_column(Date, nullable=False)
     energy_kwh: Mapped[float] = mapped_column(Float, nullable=False)
 
     # Source tracking
@@ -195,6 +197,8 @@ class FactEnergyDaily(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
+        UniqueConstraint("source_batch_id", "ts", name="uq_energy_daily_batch_ts"),
+        Index("idx_energy_daily_ts", "ts"),
         Index("idx_energy_daily_source", "source_type", "source_device_id"),
         Index("idx_energy_daily_batch", "source_batch_id"),
     )
@@ -205,7 +209,7 @@ class EnvironmentalMetrics(Base):
     __tablename__ = "environmental_metrics"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, unique=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     
     # Measurements
     atm_pressure: Mapped[Optional[float]] = mapped_column(Numeric(8, 2))
@@ -230,6 +234,7 @@ class EnvironmentalMetrics(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
+        UniqueConstraint("source_batch_id", "timestamp", name="uq_env_metrics_batch_ts"),
         Index("idx_env_metrics_timestamp", "timestamp"),
         Index("idx_env_metrics_source", "source_type", "source_device_id"),
         Index("idx_env_metrics_batch", "source_batch_id"),
@@ -241,7 +246,7 @@ class DairyProduction(Base):
     __tablename__ = "dairy_production"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    production_date: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
+    production_date: Mapped[date] = mapped_column(Date, nullable=False)
     
     # Production metrics
     day_production_per_cow_kg: Mapped[Optional[float]] = mapped_column(Numeric(10, 2))
@@ -265,6 +270,7 @@ class DairyProduction(Base):
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
+        UniqueConstraint("source_batch_id", "production_date", name="uq_dairy_batch_date"),
         Index("idx_dairy_production_date", "production_date"),
         Index("idx_dairy_source", "source_type", "source_device_id"),
         Index("idx_dairy_batch", "source_batch_id"),

@@ -16,7 +16,7 @@ coercions:
 
 # Primary key for deduplication
 primary_key:
-  - device_id
+  - source_batch_id
   - ts
 
 # Validation Rules

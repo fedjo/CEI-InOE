@@ -21,6 +21,7 @@ class SourceType(str, Enum):
     CSV = "csv"
     API = "api"
     EXCEL = "excel"
+    JSON = "json"
     UNKNOWN = "unknown"
 
 

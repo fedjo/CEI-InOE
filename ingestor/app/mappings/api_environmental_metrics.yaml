@@ -65,6 +65,7 @@ validation_rules:
 conflict_resolution:
   strategy: update  # update, ignore, fail, append
   on_columns:
+    - source_batch_id
     - timestamp
   update_columns:
     - atm_pressure

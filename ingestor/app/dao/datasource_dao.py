@@ -76,11 +76,11 @@ class DatasourceDAO(BaseCoreDAO):
 
     def get_weather_datasources(self) -> list[dict]:
         """Get all active weather datasources."""
-        return self.get_by_type('weather', 'active')
+        return self.get_by_type('weather', 'online')
 
     def get_energy_datasources(self) -> list[dict]:
         """Get all active energy datasources."""
-        return self.get_by_type('energy', 'active')
+        return self.get_by_type('energy', 'online')
 
     def get_energy_datasources_with_token(self) -> list[dict]:
         """
@@ -99,7 +99,7 @@ class DatasourceDAO(BaseCoreDAO):
             self.table.c.metadata
         ).where(
             self.table.c.data_type == 'energy',
-            self.table.c.status == 'active',
+            self.table.c.status == 'online',
             self.table.c.metadata['device_token'].astext.isnot(None)
         )
 
