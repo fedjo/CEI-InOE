@@ -40,23 +40,6 @@ services:
         condition: service_healthy
     command: alembic upgrade head
 
-  # Seed datasources (updated from device seed)
-  datasource-seed:
-    image: postgres:16
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
-    volumes:
-      - ./db/seeds:/db/seeds
-    environment:
-      PGPASSWORD: ${DB_PASSWORD:-ocei}
-    entrypoint: >
-      sh -c "
-      psql -h postgres -U ${DB_USER:-ocei} -d ${DB_NAME:-ocei3}
-      -c \"\\copy datasource(external_id, source_category, data_type, alias, client, description, status, timezone, metadata)
-           FROM '/db/seeds/datasources.csv' CSV HEADER;\"
-      "
-
   ingestor:
     build:
       context: .
@@ -72,9 +55,9 @@ services:
     volumes:
       - ./data:/data
       - ./shared:/app/shared
-    # depends_on:
-    #   datasource-seed:
-    #     condition: service_completed_successfully
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   api:

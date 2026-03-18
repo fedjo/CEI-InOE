@@ -1,0 +1,256 @@
+# CEI-InOE Datasource Registry
+# Loaded on ingestor startup — each entry is upserted by external_id.
+
+datasources:
+
+  # --- File-based sources ---
+  - external_id: lelyna
+    source_category: file
+    data_type: milk
+    alias: farm milking system 1
+    client: LK Dairy Farm
+    status: online
+    metadata: {}
+
+  - external_id: delaval
+    source_category: file
+    data_type: milk
+    alias: farm milking system 2
+    client: Blue Farm Dairy
+    status: online
+    metadata: {}
+
+  # --- Blue Farm Dairy energy meters (Tago.io API) ---
+  - external_id: "68f1fb6550bcae000b4c2501"
+    source_category: api
+    data_type: energy
+    alias: DB-Fan Main
+    client: Blue Farm Dairy
+    status: online
+    metadata:
+      name: eastron_sdm630_9372
+      alias: DB-Fan Main
+      device_token: ed1d7e26-6a18-40dc-bd45-d15db29e895a
+
+  - external_id: "68f1fb6546b86e0009bf15bc"
+    source_category: api
+    data_type: energy
+    alias: DB-G Fridge Compressor 1
+    client: Blue Farm Dairy
+    status: online
+    metadata:
+      name: eastron_sdm630_9578
+      alias: DB-G Fridge Compressor 1
+      device_token: 93f3263f-b671-4c1d-ab05-5eca131a95d3
+
+  - external_id: "68f1fb65640d9e000b79873b"
+    source_category: api
+    data_type: energy
+    alias: DB-G Fridge Compressor 2
+    client: Blue Farm Dairy
+    status: online
+    metadata:
+      name: eastron_sdm630_9619
+      alias: DB-G Fridge Compressor 2
+      device_token: 4266e7ce-6652-4abf-8d66-74d6f867d6b8
+
+  - external_id: "68f1fb6546b86e0009bf15bb"
+    source_category: api
+    data_type: energy
+    alias: DB-G Fridge Milk Agitator
+    client: Blue Farm Dairy
+    status: online
+    metadata:
+      name: eastron_sdm630_9672
+      alias: DB-G Fridge Milk Agitator
+      device_token: 3cd40230-bd67-4dac-a248-40818804b22a
+
+  - external_id: "68f1fb651a7bea0010b823c3"
+    source_category: api
+    data_type: energy
+    alias: DB-G Milking Units 1
+    client: Blue Farm Dairy
+    status: online
+    metadata:
+      name: eastron_sdm630_9709
+      alias: DB-G Milking Units 1
+      device_token: aa3f997b-8e46-47b1-aa22-f0aeb3c17ecd
+
+  - external_id: "68f1fb650def81000a44a0a7"
+    source_category: api
+    data_type: energy
+    alias: DB-G Milking Units 2
+    client: Blue Farm Dairy
+    status: online
+    metadata:
+      name: eastron_sdm630_9616
+      alias: DB-G Milking Units 2
+      device_token: c130f9db-8d9e-4b60-9500-cdbba24bf045
+
+  - external_id: "68f1fb6521551f000a728daa"
+    source_category: api
+    data_type: energy
+    alias: DB-G Ventilation Fans 1
+    client: Blue Farm Dairy
+    status: online
+    metadata:
+      name: eastron_sdm630_6617
+      alias: DB-G Ventilation Fans 1
+      device_token: 5fe20d8e-f2d3-49ef-b45c-188891fc2b90
+
+  # --- LK Dairy Farm energy meters (Tago.io API) ---
+  - external_id: "68fbe8f594138e000a6e9260"
+    source_category: api
+    data_type: energy
+    alias: DB-Fridge Compressor Atlas
+    client: LK Dairy Farm
+    status: online
+    metadata:
+      name: eastron_sdm630_9658
+      alias: DB-Fridge Compressor Atlas
+      device_token: 0b834134-5935-471f-a690-45cce4704cf9
+
+  - external_id: "68fbe8f5374f09000ac4bbe1"
+    source_category: api
+    data_type: energy
+    alias: DB-Fridge Fridge
+    client: LK Dairy Farm
+    status: online
+    metadata:
+      name: eastron_sdm630_9344
+      alias: DB-Fridge Fridge
+      device_token: 7a6fd627-8714-4a46-acb1-95f03d8cca25
+
+  - external_id: "68fbe8f576b75a000ae1d4dd"
+    source_category: api
+    data_type: energy
+    alias: DB-Fridge Hot Water
+    client: LK Dairy Farm
+    status: online
+    metadata:
+      name: eastron_sdm630_9633
+      alias: DB-Fridge Hot Water
+      device_token: 30068623-3d00-40c1-a562-682840b6c0c4
+
+  - external_id: "6902200ea4feb40009ef39b8"
+    source_category: api
+    data_type: energy
+    alias: Engine Room - Hot Water
+    client: LK Dairy Farm
+    status: online
+    metadata:
+      name: eastron_sdm630_6524
+      alias: Engine Room - Hot Water
+      device_token: 037aa09e-13eb-4468-aa5a-f5950119b5cd
+
+  - external_id: "68fbe8f56fe6f1000adeffcc"
+    source_category: api
+    data_type: energy
+    alias: MDB-Milos Main
+    client: LK Dairy Farm
+    status: online
+    metadata:
+      name: eastron_sdm630_6759
+      alias: MDB-Milos Main
+      device_token: 559daad0-f134-4763-a0a7-8a91c201c1b9
+
+  - external_id: "68fbe8f5eb5462000945a324"
+    source_category: api
+    data_type: energy
+    alias: SMDB-1 Milk Processing Facilities 1
+    client: LK Dairy Farm
+    status: online
+    metadata:
+      name: eastron_sdm630_9782
+      alias: SMDB-1 Milk Processing Facilities 1
+      device_token: e0b40cee-117e-4150-bc73-08f72d222717
+
+  - external_id: "68fbed1b76b75a000ae2401a"
+    source_category: api
+    data_type: energy
+    alias: SMDB-1 Milk Processing Facilities 2
+    client: LK Dairy Farm
+    status: online
+    metadata:
+      name: eastron_sdm630_6756
+      alias: SMDB-1 Milk Processing Facilities 2
+      device_token: 32c44a1f-b1bb-4f28-bd81-6ac2dde274b8
+
+  - external_id: "68fbe8f50ad75e000a4d2158"
+    source_category: api
+    data_type: energy
+    alias: SMDB-1 Ventilation Fans
+    client: LK Dairy Farm
+    status: online
+    metadata:
+      name: eastron_sdm630_6927
+      alias: SMDB-1 Ventilation Fans
+      device_token: c8d679bd-42ee-4c77-94e9-cfd74edcb546
+
+  # --- Charalambides Embio Factory energy meters ---
+  - external_id: "691adf8f784b85000bb26f55"
+    source_category: api
+    data_type: energy
+    alias: Charalambides Panel 1
+    client: Charalambides Embio Factory
+    status: online
+    metadata:
+      name: eastron_sdm630_9714
+      alias: "1"
+      device_token: c7ef78fc-f9b3-47c8-b934-0659de04cfa1
+
+  - external_id: "691adf8f650a860009bd0a23"
+    source_category: api
+    data_type: energy
+    alias: Charalambides Panel 2
+    client: Charalambides Embio Factory
+    status: online
+    metadata:
+      name: eastron_sdm630_9777
+      alias: "2"
+      device_token: 6187b708-5af8-48f0-b85f-a4f32c22b311
+
+  - external_id: "691adf8f17835e000a96a913"
+    source_category: api
+    data_type: energy
+    alias: Charalambides Panel 3
+    client: Charalambides Embio Factory
+    status: online
+    metadata:
+      name: eastron_sdm630_9447
+      alias: "3"
+      device_token: b41d4036-9cc4-40b5-9295-603f6145f1e0
+
+  - external_id: "691adf8fb38f670010e05dc6"
+    source_category: api
+    data_type: energy
+    alias: Charalambides Panel 4
+    client: Charalambides Embio Factory
+    status: online
+    metadata:
+      name: eastron_sdm630_9624
+      alias: "4"
+      device_token: 34370fef-79c8-4cc5-a7b0-f979b7063e43
+
+  - external_id: "691adf8fd67d2b000a121c82"
+    source_category: api
+    data_type: energy
+    alias: Charalambides Panel 5
+    client: Charalambides Embio Factory
+    status: online
+    metadata:
+      name: eastron_sdm630_6860
+      alias: "5"
+      device_token: 3026c383-adc3-4461-8ff4-c2363d95ae9e
+
+  # --- Weather sensor ---
+  - external_id: testweather2
+    source_category: api
+    data_type: weather
+    alias: farm weather 1
+    client: LK Dairy Farm
+    status: online
+    metadata:
+      type: Outdoors
+      isLocked: false
+      external_id: 1236

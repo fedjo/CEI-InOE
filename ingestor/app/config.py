@@ -82,8 +82,8 @@ TAGO_ENABLED = os.environ.get('TAGO_ENABLED', 'true').lower() == 'true'
 # Site Configuration
 # ============================================================================
 
-# Path to site YAML config file (absolute or relative to working directory)
-SITE_CONFIG_PATH = os.environ.get('SITE_CONFIG_PATH', '/app/conf/site_config.yaml')
+# Directory containing site_config.yaml and datasources.yaml
+CONF_DIR = os.environ.get('CONF_DIR', '/app/conf')
 
 
 # ============================================================================
