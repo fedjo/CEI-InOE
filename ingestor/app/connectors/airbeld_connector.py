@@ -78,32 +78,33 @@ class AirbeldConnector(HttpConnector):
         }
         
         super().__init__(connector_id, http_config)
-        self._devices: List[Dict[str, Any]] = []
+        self._datasources: List[Dict[str, Any]] = []
     
     def start(self) -> None:
         """Initialize and load devices from DB."""
         super().start()
         self._load_datasources()
-        logger.info(f"[{self.connector_id}] Loaded {len(self._devices)} weather devices")
+        logger.info(f"[{self.connector_id}] Loaded {len(self._datasources)} weather devices")
     
     def discover(self) -> List[str]:
         """Return device IDs (not endpoint IDs)."""
-        return [d['device_id'] for d in self._devices if d.get('external_id')]
-    
+        return [d['external_id'] for d in self._datasources if d.get('external_id')]
+
     def fetch(self, ext_id: str) -> Optional[Any]:
         """Fetch environmental data for a device."""
-        device = self._get_device(ext_id)
-        if not device:
-            logger.error(f"[{self.connector_id}] Unknown device: {ext_id}")
+        datasource = self._get_datasource(ext_id)
+        if not datasource:
+            logger.error(f"[{self.connector_id}] Unknown datasource: {ext_id}")
             return None
-        
-        external_id = device.get('external_id')
+
+        external_id = datasource.get('external_id')
+        ds_id = datasource.get('id', 3) # Fallback to 3 if no ID, since Airbeld API doesn't have separate endpoints per device
         if not external_id:
-            logger.error(f"[{self.connector_id}] No external_id for device {ext_id}")
+            logger.error(f"[{self.connector_id}] No external_id for datasource {ext_id}")
             return None
         
-        # Create dynamic endpoint for this device
-        start_date, end_date = self._get_date_range(ext_id)
+        # Create dynamic endpoint for this datasource
+        start_date, end_date = self._get_date_range(ds_id)
         
         endpoint = EndpointConfig(
             id=ext_id,
@@ -116,7 +117,7 @@ class AirbeldConnector(HttpConnector):
             },
             data_path='sensors',
             mapping=f"{self.airbeld_cfg.mappings_dir}/api_environmental_metrics.yaml",
-            datasource_id=ext_id,
+            datasource_id=ds_id,
             granularity='hourly',
             use_time_cursor=True,
             timestamp_field='timestamp',
@@ -246,9 +247,9 @@ class AirbeldConnector(HttpConnector):
                 datasource_dao = DatasourceDAO(conn)
                 datasources = datasource_dao.get_weather_datasources()
                 # Map to device-like format for backward compatibility
-                self._devices = [
+                self._datasources = [
                     {
-                        'device_id': ds['external_id'],
+                        'id': ds['id'],
                         'alias': ds.get('alias'),
                         'client': ds.get('client'),
                         'external_id': ds.get('metadata_', {}).get('external_id') if ds.get('metadata_') else ds['external_id'],
@@ -259,12 +260,12 @@ class AirbeldConnector(HttpConnector):
 
         except Exception as e:
             logger.error(f"[{self.connector_id}] Failed to load devices: {e}")
-            self._devices = []
+            self._datasources = []
     
-    def _get_device(self, device_id: str) -> Optional[Dict[str, Any]]:
-        """Find device by ID."""
-        for d in self._devices:
-            if d['device_id'] == device_id:
+    def _get_datasource(self, external_id: str) -> Optional[Dict[str, Any]]:
+        """Find device by External ID."""
+        for d in self._datasources:
+            if d['external_id'] == external_id:
                 return d
         return None
     
@@ -272,21 +273,21 @@ class AirbeldConnector(HttpConnector):
     # Helpers / Date Range / Cursor
     # -------------------------------------------------------------------------
     
-    def _get_date_range(self, device_id: str) -> tuple[datetime, datetime]:
+    def _get_date_range(self, ds_id: int) -> tuple[datetime, datetime]:
         """Get start and end dates for fetch."""
         end_date = datetime.now()
 
         # Try to get last cursor from database
-        start_date = self._get_cursor_from_db(device_id)
+        start_date = self._get_cursor_from_db(ds_id)
         
         if not start_date:
             # Fallback: query max timestamp from data table
-            start_date = self._get_max_timestamp_from_data(device_id)
+            start_date = self._get_max_timestamp_from_data(ds_id)
         
         if not start_date:
             # Default: use lookback
             start_date = end_date - timedelta(days=self.airbeld_cfg.lookback_days)
-            logger.info(f"[{self.connector_id}] No cursor for {device_id}, using {self.airbeld_cfg.lookback_days} day lookback")
+            logger.info(f"[{self.connector_id}] No cursor for {ds_id}, using {self.airbeld_cfg.lookback_days} day lookback")
         else:
             # Start from last fetch + 1 hour to avoid duplicates
             start_date = start_date + timedelta(hours=1)
@@ -294,7 +295,7 @@ class AirbeldConnector(HttpConnector):
 
         return start_date, end_date
     
-    def _get_cursor_from_db(self, device_id: str) -> Optional[datetime]:
+    def _get_cursor_from_db(self, ds_id: int) -> Optional[datetime]:
         """Get last fetch timestamp from cursor table using DAO."""
         try:
             from shared import get_connection
@@ -304,15 +305,15 @@ class AirbeldConnector(HttpConnector):
                 cursor_dao = CursorDAO(conn)
                 return cursor_dao.get_cursor(
                     connector_id=self.connector_id,
-                    endpoint_id=device_id,
-                    device_id=device_id
+                    endpoint_id=ds_id,
+                    datasource_id=ds_id
                 )
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Cursor table query failed: {e}")
             return None
     
-    def _get_max_timestamp_from_data(self, device_id: str) -> Optional[datetime]:
+    def _get_max_timestamp_from_data(self, ds_id: int) -> Optional[datetime]:
         """Fallback: get max timestamp from environmental_metrics table using DAO."""
         try:
             from shared import get_connection
@@ -320,7 +321,7 @@ class AirbeldConnector(HttpConnector):
             
             with get_connection() as conn:
                 cursor_dao = CursorDAO(conn)
-                return cursor_dao.get_max_environmental_timestamp(device_id)
+                return cursor_dao.get_max_environmental_timestamp(ds_id)
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Data table query failed: {e}")

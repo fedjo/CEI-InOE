@@ -32,7 +32,7 @@ class InputEnvelope(BaseModel):
 
     # Pipeline hints
     hint_mapping: Optional[str] = None
-    hint_datasource_id: Optional[str] = None
+    hint_datasource_id: Optional[int] = None
     hint_data_type: Optional[str] = None
     hint_granularity: Optional[str] = None
     

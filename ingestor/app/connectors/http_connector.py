@@ -42,7 +42,7 @@ class EndpointConfig(BaseModel):
     body: Optional[Dict[str, Any]] = None
     data_path: str = ""
     mapping: Optional[str] = None
-    datasource_id: Optional[str] = None
+    datasource_id: Optional[int] = None
     granularity: Optional[str] = None
     pagination: PaginationConfig = PaginationConfig()
     use_time_cursor: bool = False
@@ -182,6 +182,7 @@ class HttpConnector(BaseConnector):
                 content=records,
                 content_type=SourceType.JSON.value,
                 hint_mapping=endpoint.mapping,
+                hint_datasource_id=endpoint.datasource_id,
                 hint_granularity=endpoint.granularity,
                 metadata=self._build_metadata(ext_id, records, endpoint)
             )
@@ -378,10 +379,10 @@ class HttpConnector(BaseConnector):
     # Cursor management
     # -------------------------------------------------------------------------
     
-    def _get_endpoint(self, endpoint_id: str) -> Optional[EndpointConfig]:
-        """Find endpoint by ID."""
+    def _get_endpoint(self, external_id: str) -> Optional[EndpointConfig]:
+        """Find endpoint by external ID."""
         for ep in self.cfg.endpoints:
-            if ep.id == endpoint_id:
+            if ep.id == external_id:
                 return ep
         return None
     
@@ -397,7 +398,7 @@ class HttpConnector(BaseConnector):
     
     def _update_cursor(
         self, 
-        item_id: str, 
+        item_id: str,
         data: Any, 
         records: List[Dict], 
         endpoint: EndpointConfig

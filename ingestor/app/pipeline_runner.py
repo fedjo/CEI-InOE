@@ -51,7 +51,7 @@ class PipelineRunner:
                     raise ValueError(f"No mapping for {envelope.source_uri}")
                 
                 # Resolve datasource (external_id -> internal id)
-                datasource_id = dao.datasource.resolve_id(envelope.hint_datasource_id or 'unknown')
+                datasource_id = envelope.hint_datasource_id
 
                 # Register batch
                 batch_id = dao.ingest_batch.register(

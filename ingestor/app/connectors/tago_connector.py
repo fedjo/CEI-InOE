@@ -123,11 +123,16 @@ class TagoConnector(HttpConnector):
         if not device_token:
             logger.error(f"[{self.connector_id}] No device_token for device {datasource_ext_id}")
             return None
-        
+
+        ds_id = datasource.get('id')
+        if not ds_id:
+            logger.error(f"[{self.connector_id}] No internal ID for datasource {datasource_ext_id}")
+            return None
+
         self._current_datasource = datasource
         
         # Get date range for fetch
-        start_date, end_date = self._get_date_range(datasource_ext_id, variable_name)
+        start_date, end_date = self._get_date_range(ds_id, datasource_ext_id, variable_name)
         
         # Determine mapping based on variable
         mapping_name = self.VARIABLE_MAP.get(variable_name, 'energy_hourly')
@@ -149,7 +154,7 @@ class TagoConnector(HttpConnector):
             },
             data_path='result',  # Extract from response.result
             mapping=f"{self.tago_cfg.mappings_dir}/api_{mapping_name}.yaml",
-            datasource_id=datasource_ext_id,
+            datasource_id=ds_id,
             granularity=granularity,
             use_time_cursor=True,
             timestamp_field='ts',
@@ -248,6 +253,7 @@ class TagoConnector(HttpConnector):
                 # Map to datasource-like format for backward compatibility
                 self._datasources = [
                     {
+                        'id': ds['id'],
                         'external_id': ds['external_id'],
                         'alias': ds.get('alias'),
                         'client': ds.get('client'),
@@ -273,7 +279,7 @@ class TagoConnector(HttpConnector):
     # Date Range / Cursor Management
     # -------------------------------------------------------------------------
     
-    def _get_date_range(self, datasource_id: str, variable_name: str) -> tuple[datetime, datetime]:
+    def _get_date_range(self, datasource_id: int, external_id: str, variable_name: str) -> tuple[datetime, datetime]:
         """
         Get start and end dates for fetch.
         
@@ -285,10 +291,10 @@ class TagoConnector(HttpConnector):
         end_date is always current timestamp.
         """
         end_date = datetime.now(timezone.utc)
-        
+
         # Build endpoint_id for cursor lookup
-        endpoint_id = f"{datasource_id}:{variable_name}"
-        
+        endpoint_id = f"{external_id}:{variable_name}"
+
         # Try to get last cursor from database
         start_date = self._get_cursor_from_db(datasource_id, endpoint_id)
         
@@ -308,7 +314,7 @@ class TagoConnector(HttpConnector):
 
         return start_date, end_date
     
-    def _get_cursor_from_db(self, datasource_id: str, endpoint_id: str) -> Optional[datetime]:
+    def _get_cursor_from_db(self, datasource_id: int, endpoint_id: str) -> Optional[datetime]:
         """Get last fetch timestamp from cursor table using DAO."""
         try:
             from shared import get_connection
@@ -326,7 +332,7 @@ class TagoConnector(HttpConnector):
             logger.debug(f"[{self.connector_id}] Cursor table query failed: {e}")
             return None
     
-    def _get_max_timestamp_from_data(self, datasource_id: str, granularity: str) -> Optional[datetime]:
+    def _get_max_timestamp_from_data(self, datasource_id: int, granularity: str) -> Optional[datetime]:
         """Fallback: get max timestamp from energy fact table using DAO."""
         try:
             from shared import get_connection

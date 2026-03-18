@@ -28,7 +28,7 @@ class CursorDAO(BaseCoreDAO):
         self,
         connector_id: str,
         endpoint_id: str,
-        datasource_id: str
+        datasource_id: int
     ) -> datetime | None:
         """
         Get last fetch timestamp for a datasource/endpoint combination.
@@ -47,7 +47,7 @@ class CursorDAO(BaseCoreDAO):
         self,
         connector_id: str,
         endpoint_id: str,
-        datasource_id: str,
+        datasource_id: int,
         timestamp: datetime
     ):
         """
@@ -100,7 +100,7 @@ class CursorDAO(BaseCoreDAO):
         self,
         connector_id: str,
         endpoint_id: str,
-        datasource_id: str
+        datasource_id: int
     ) -> bool:
         """Delete a specific cursor. Returns True if deleted."""
         from sqlalchemy import delete
@@ -129,7 +129,7 @@ class CursorDAO(BaseCoreDAO):
     # Fallback Queries (for cursor recovery from data tables)
     # -------------------------------------------------------------------------
 
-    def get_max_environmental_timestamp(self, datasource_id: str) -> datetime | None:
+    def get_max_environmental_timestamp(self, datasource_id: int) -> datetime | None:
         """
         Get max timestamp from environmental_metrics for cursor fallback.
         
@@ -148,7 +148,7 @@ class CursorDAO(BaseCoreDAO):
         )
         return self.scalar(stmt)
 
-    def get_max_energy_timestamp(self, datasource_id: str, granularity: str = 'hourly') -> datetime | None:
+    def get_max_energy_timestamp(self, datasource_id: int, granularity: str = 'hourly') -> datetime | None:
         """
         Get max timestamp from energy fact table for cursor fallback.
         
