@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -e /app/shared/  # Install shared code as a packa
 
 
 # Copy application
-COPY api/app/ .
+COPY api/app/ /app/app/
 
 EXPOSE 8000
 

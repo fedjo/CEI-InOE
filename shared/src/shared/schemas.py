@@ -9,7 +9,7 @@ from datetime import datetime, date
 from typing import Optional, Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 # =============================================================================
@@ -27,7 +27,10 @@ class DatasourceBase(BaseModel):
     description: Optional[str] = None
     status: str = "active"
     timezone: str = "UTC"
-    metadata_: Optional[dict[str, Any]] = Field(default=None, alias="metadata")
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("metadata_", "metadata"),
+    )
 
 
 class DatasourceCreate(DatasourceBase):
@@ -42,13 +45,16 @@ class DatasourceUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[str] = None
     timezone: Optional[str] = None
-    metadata_: Optional[dict[str, Any]] = Field(default=None, alias="metadata")
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None,
+        validation_alias=AliasChoices("metadata_", "metadata"),
+    )
 
 
 class DatasourceRead(DatasourceBase):
     """Schema for reading a datasource."""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -112,7 +118,6 @@ class IngestBatchSummary(BaseModel):
 
 class EnergyHourlyBase(BaseModel):
     """Base schema for hourly energy data."""
-    datasource_id: int
     ts: datetime
     energy_kwh: float
 
@@ -130,7 +135,6 @@ class EnergyHourlyRead(EnergyHourlyBase):
 
 class EnergyDailyBase(BaseModel):
     """Base schema for daily energy data."""
-    datasource_id: int
     ts: date
     energy_kwh: float
 

@@ -1,21 +1,19 @@
 """Dairy production endpoints."""
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from datetime import date
+from sqlalchemy.orm import Session
 
+from app.db.session import get_db
 from app.db.queries import dairy as dairy_queries
-from app.schemas.common import PaginatedResponse
-from app.schemas.dairy import (
-    DairyProductionRecord, 
-    DairyLatestRecord,
-    DairyStatsResponse
-)
 from app.config import settings
+
+from shared import DairyProductionRead, PaginatedResponse
 
 router = APIRouter()
 
 
-@router.get("/daily", response_model=PaginatedResponse[DairyProductionRecord])
+@router.get("/daily", response_model=PaginatedResponse)
 async def get_dairy_production(
     start_date: date | None = Query(None, description="Start date (inclusive)"),
     end_date: date | None = Query(None, description="End date (inclusive)"),
@@ -26,11 +24,12 @@ async def get_dairy_production(
         le=settings.max_page_size,
         description="Records per page"
     ),
+    db: Session = Depends(get_db),
 ):
     """
     Get dairy production records.
     
-    Returns paginated dairy data from dairy_production table.
+    Returns paginated dairy data.
     """
     if start_date and end_date and start_date > end_date:
         raise HTTPException(
@@ -38,40 +37,41 @@ async def get_dairy_production(
             detail="start_date must be before or equal to end_date"
         )
     
-    rows, total = dairy_queries.get_production(
+    records, total = dairy_queries.get_production(
+        db=db,
         start_date=start_date,
         end_date=end_date,
         page=page,
         page_size=page_size
     )
     
-    return PaginatedResponse.create(
-        data=[DairyProductionRecord(**row) for row in rows],
+    return PaginatedResponse(
+        data=[DairyProductionRead.model_validate(r) for r in records],
         total=total,
         page=page,
-        page_size=page_size
+        page_size=page_size,
+        total_pages=(total + page_size - 1) // page_size
     )
 
 
-@router.get("/latest", response_model=DairyLatestRecord)
-async def get_latest_dairy():
+@router.get("/latest", response_model=DairyProductionRead)
+async def get_latest_dairy(db: Session = Depends(get_db)):
     """
     Get the most recent dairy production record.
     """
-    result = dairy_queries.get_latest()
+    record = dairy_queries.get_latest(db)
     
-    if not result:
+    if not record:
         raise HTTPException(status_code=404, detail="No dairy data found")
     
-    return DairyLatestRecord(**result)
+    return DairyProductionRead.model_validate(record)
 
 
-@router.get("/stats", response_model=DairyStatsResponse)
-async def get_dairy_stats():
+@router.get("/stats")
+async def get_dairy_stats(db: Session = Depends(get_db)):
     """
     Get dairy data statistics.
     
-    Returns counts, date ranges, and averages for dairy data.
+    Returns counts, date ranges, and averages.
     """
-    result = dairy_queries.get_stats()
-    return DairyStatsResponse(**result)
+    return dairy_queries.get_stats(db)
