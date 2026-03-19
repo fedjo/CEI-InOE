@@ -265,3 +265,12 @@ datasources:
       type: Outdoors
       isLocked: false
       external_id: "1737"
+
+  - external_id: "NE=12345678"
+    source_category: api
+    data_type: solar
+    alias: "Blue Farm PV"
+    client: Embio HQ
+    status: online
+    metadata:
+      station_code: "NE=12345678"  # from get_station_list()
