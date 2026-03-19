@@ -1,11 +1,11 @@
 """
 FusionSolar API connector.
 Fetches station KPIs (hourly/daily/monthly) from Huawei FusionSolar.
-Extends HttpConnector with FusionSolar session-based auth and data transformation.
 """
 
 import hashlib
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -53,7 +53,7 @@ class FusionSolarConnectorConfig(BaseModel):
     max_retries: int = 3
     enabled: bool = True
     mappings_dir: str = "/app/mappings"
-    granularities: List[str] = ["hourly", "daily", "monthly"]
+    granularities: List[str] = ["daily"]
 
 
 class FusionSolarConnector(BaseConnector):
@@ -62,7 +62,14 @@ class FusionSolarConnector(BaseConnector):
 
     Uses session-based auth (login → XSRF-TOKEN cookie).
     Discovers station codes, then fetches KPIs per granularity.
+
+    Rate-limiting: all API calls are throttled to respect FusionSolar's
+    ~10 s per-interface limit.  Station codes are batched into a single
+    call per granularity and cached so that multiple datasources don't
+    trigger extra requests.
     """
+
+    _MIN_REQUEST_INTERVAL = 15.0  # seconds between API calls
 
     def __init__(self, connector_id: str, config: Dict[str, Any]):
         super().__init__(connector_id, config)
@@ -70,6 +77,10 @@ class FusionSolarConnector(BaseConnector):
         self._session: Optional[requests.Session] = None
         self._station_codes: List[str] = []
         self._datasources: List[Dict[str, Any]] = []
+        self._api_cache: Dict[str, List[Dict]] = {}   # granularity → raw data points
+        self._last_request_at: float = 0.0
+
+    # ── Lifecycle ─────────────────────────────────────────────────
 
     def start(self) -> None:
         self._session = requests.Session()
@@ -77,7 +88,7 @@ class FusionSolarConnector(BaseConnector):
             'Connection': 'keep-alive',
             'Content-Type': 'application/json',
         })
-        self._login()
+        # Lazy login — first _ensure_logged_in() will handle it
         self._load_datasources()
         self.status = ConnectorStatus.RUNNING
         logger.info(f"[{self.connector_id}] Started with {len(self._datasources)} solar datasources")
@@ -88,18 +99,98 @@ class FusionSolarConnector(BaseConnector):
             self._session = None
         self.status = ConnectorStatus.STOPPED
 
+    # ── Throttle ──────────────────────────────────────────────────
+
+    def _throttle(self) -> None:
+        """Enforce minimum interval between consecutive API requests."""
+        elapsed = time.monotonic() - self._last_request_at
+        if self._last_request_at and elapsed < self._MIN_REQUEST_INTERVAL:
+            delay = self._MIN_REQUEST_INTERVAL - elapsed
+            logger.debug(f"[{self.connector_id}] Throttling {delay:.1f}s")
+            time.sleep(delay)
+
+    def _post(self, path: str, payload: dict) -> requests.Response:
+        """Throttled POST to the FusionSolar API."""
+        self._throttle()
+        resp = self._session.post(
+            f"{self.cfg.base_url}/{path}",
+            json=payload,
+            timeout=self.cfg.timeout,
+        )
+        self._last_request_at = time.monotonic()
+        resp.raise_for_status()
+        return resp
+
+    # ── Discover / Fetch ──────────────────────────────────────────
+
     def discover(self) -> List[str]:
         """
-        Return work items as {station_code}:{granularity}.
+        Return work items as {external_id}:{granularity}.
+        Clears the API cache so each cycle makes fresh requests.
         """
+        self._api_cache = {}
         items = []
         for ds in self._datasources:
-            station_code = ds.get('station_code')
-            if not station_code:
+            if not ds.get('station_code'):
                 continue
             for gran in self.cfg.granularities:
                 items.append(f"{ds['external_id']}:{gran}")
         return items
+
+    def _fetch_granularity_data(self, granularity: str) -> List[Dict]:
+        """
+        Fetch KPI data for ALL stations at once for *granularity*.
+        The result is cached so that the second datasource for the same
+        granularity does not hit the API again.
+        """
+        if granularity in self._api_cache:
+            return self._api_cache[granularity]
+
+        api_function, _ = GRANULARITY_MAP[granularity]
+
+        # Batch every station code into one comma-separated value
+        station_codes = ','.join(
+            ds['station_code'] for ds in self._datasources
+            if ds.get('station_code')
+        )
+        if not station_codes:
+            self._api_cache[granularity] = []
+            return []
+
+        try:
+            self._ensure_logged_in()
+            collect_time = int(datetime.now(timezone.utc).timestamp()) * 1000
+
+            resp = self._post(api_function, {
+                'stationCodes': station_codes,
+                'collectTime': collect_time,
+            })
+            body = resp.json()
+            print(body)  # debug
+
+            if not body.get('success', False):
+                fail_code = body.get('failCode')
+                if fail_code in (305, 306, 307):
+                    self._login()
+                    resp = self._post(api_function, {
+                        'stationCodes': station_codes,
+                        'collectTime': collect_time,
+                    })
+                    body = resp.json()
+                if not body.get('success', False):
+                    logger.warning(f"[{self.connector_id}] API error for {granularity}: {body}")
+                    self._api_cache[granularity] = []
+                    return []
+
+            points = body.get('data') or []
+            self._api_cache[granularity] = points
+            logger.info(f"[{self.connector_id}] Fetched {len(points)} data points for {granularity}")
+            return points
+
+        except requests.RequestException as e:
+            logger.error(f"[{self.connector_id}] API request failed for {granularity}: {e}")
+            self._api_cache[granularity] = []
+            return []
 
     def fetch(self, ext_id: str) -> Optional[InputEnvelope]:
         parts = ext_id.split(':')
@@ -123,42 +214,22 @@ class FusionSolarConnector(BaseConnector):
 
         start_date, end_date = self._get_date_range(ds_id, ext_id, granularity)
 
-        # Fetch day-by-day (API returns one day per call)
+        # One batched + cached API call per granularity
+        all_points = self._fetch_granularity_data(granularity)
+
+        # Filter to THIS station and date range
+        start_ms = int(start_date.timestamp()) * 1000
+        end_ms = int(end_date.timestamp()) * 1000
         all_records = []
-        current = start_date
-        while current <= end_date:
-            try:
-                self._ensure_logged_in()
-                collect_time = int(current.timestamp()) * 1000
-                resp = self._session.post(
-                    f"{self.cfg.base_url}/{api_function}",
-                    json={'stationCodes': station_code, 'collectTime': collect_time},
-                    timeout=self.cfg.timeout,
-                )
-                resp.raise_for_status()
-                body = resp.json()
-
-                if not body.get('success', False):
-                    fail_code = body.get('failCode')
-                    if fail_code in (305, 306, 307):
-                        self._login()
-                        continue  # retry same day
-                    logger.warning(f"[{self.connector_id}] API error: {body}")
-                    current += timedelta(days=1)
-                    continue
-
-                for point in (body.get('data') or []):
-                    record = self._transform_point(point)
-                    if record:
-                        all_records.append(record)
-
-            except requests.RequestException as e:
-                logger.error(f"[{self.connector_id}] Request failed for {current.date()}: {e}")
-
-            current += timedelta(days=1)
+        for point in all_points:
+            if point.get('stationCode') and point['stationCode'] != station_code:
+                continue
+            record = self._transform_point(point)
+            if record and start_ms <= record['ts'] <= end_ms:
+                all_records.append(record)
 
         if not all_records:
-            logger.debug(f"[{self.connector_id}] No records from {ext_id}")
+            logger.info(f"[{self.connector_id}] No records from {ext_id}")
             return None
 
         all_records.sort(key=lambda r: r['ts'])
@@ -189,8 +260,10 @@ class FusionSolarConnector(BaseConnector):
             },
         )
 
-        logger.info(f"[{self.connector_id}] Fetched {len(all_records)} {granularity} records from {datasource_ext_id}")
+        logger.info(f"[{self.connector_id}] {len(all_records)} {granularity} records for {datasource_ext_id}")
         return envelope
+
+    # ── Ack / Fail ────────────────────────────────────────────────
 
     def ack(self, envelope: InputEnvelope) -> None:
         """Update cursor after successful processing."""
@@ -209,11 +282,11 @@ class FusionSolarConnector(BaseConnector):
                         connector_id=self.connector_id,
                         endpoint_id=ext_id,
                         datasource_id=ds_id,
-                        last_fetch_timestamp=ts,
+                        timestamp=ts,           # was last_fetch_timestamp — wrong kwarg
                     )
                     conn.commit()
             except Exception as e:
-                logger.error(f"[{self.connector_id}] Cursor update failed: {e}")
+                logger.error(f"[{self.connector_id}] Cursor update failed: {e}", exc_info=True)
 
     def fail(self, envelope: InputEnvelope, error: Exception) -> None:
         logger.error(f"[{self.connector_id}] Processing failed for {envelope.input_id}: {error}")
@@ -228,12 +301,10 @@ class FusionSolarConnector(BaseConnector):
     # ── Auth ──────────────────────────────────────────────────────
 
     def _login(self) -> None:
-        resp = self._session.post(
-            f"{self.cfg.base_url}/login",
-            json={'userName': self.cfg.user_name, 'systemCode': self.cfg.system_code},
-            timeout=self.cfg.timeout,
-        )
-        resp.raise_for_status()
+        resp = self._post('login', {
+            'userName': self.cfg.user_name,
+            'systemCode': self.cfg.system_code,
+        })
         body = resp.json()
         if not body.get('success', False):
             raise RuntimeError(f"FusionSolar login failed: {body}")
@@ -321,7 +392,7 @@ class FusionSolarConnector(BaseConnector):
                     datasource_id=datasource_id,
                 )
         except Exception as e:
-            logger.debug(f"[{self.connector_id}] Cursor query failed: {e}")
+            logger.error(f"[{self.connector_id}] Cursor query failed: {e}")
             return None
 
     # ── Helpers ────────────────────────────────────────────────────
