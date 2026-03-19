@@ -191,9 +191,9 @@ datasources:
   - external_id: "691adf8f784b85000bb26f55"
     source_category: api
     data_type: energy
-    alias: Charalambides Panel 1
+    alias: SmartMeter 1
     client: Charalambides Embio Factory
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9714
       alias: "1"
@@ -202,9 +202,9 @@ datasources:
   - external_id: "691adf8f650a860009bd0a23"
     source_category: api
     data_type: energy
-    alias: Charalambides Panel 2
+    alias: SmartMeter 2
     client: Charalambides Embio Factory
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9777
       alias: "2"
@@ -213,9 +213,9 @@ datasources:
   - external_id: "691adf8f17835e000a96a913"
     source_category: api
     data_type: energy
-    alias: Charalambides Panel 3
+    alias: SmartMeter 3
     client: Charalambides Embio Factory
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9447
       alias: "3"
@@ -224,9 +224,9 @@ datasources:
   - external_id: "691adf8fb38f670010e05dc6"
     source_category: api
     data_type: energy
-    alias: Charalambides Panel 4
+    alias: SmartMeter 4
     client: Charalambides Embio Factory
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9624
       alias: "4"
@@ -235,9 +235,9 @@ datasources:
   - external_id: "691adf8fd67d2b000a121c82"
     source_category: api
     data_type: energy
-    alias: Charalambides Panel 5
+    alias: SmartMeter 5
     client: Charalambides Embio Factory
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_6860
       alias: "5"
