@@ -10,6 +10,7 @@ COPY shared/ /app/shared/
 RUN pip install --no-cache-dir -e /app/shared/  # Install shared code as a package
 
 COPY ingestor/conf/ /app/conf/
+COPY ingestor/mappings/ /app/mappings/
 COPY ingestor/app/ .
 
 CMD ["python", "main.py"]

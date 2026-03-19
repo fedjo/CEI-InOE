@@ -244,13 +244,24 @@ datasources:
       device_token: 3026c383-adc3-4461-8ff4-c2363d95ae9e
 
   # --- Weather sensor ---
-  - external_id: 1236
+  - external_id: "1236"
     source_category: api
     data_type: weather
-    alias: farm weather 1
+    alias: O-CEI Airbeld weather 1
     client: LK Dairy Farm
     status: online
     metadata:
       type: Outdoors
       isLocked: false
-      external_id: 1236
+      external_id: "1236"
+
+  - external_id: "1737"
+    source_category: api
+    data_type: weather
+    alias: O-CEI Airbeld weather
+    client: Charalambides Embio Factory
+    status: online
+    metadata:
+      type: Outdoors
+      isLocked: false
+      external_id: "1737"
