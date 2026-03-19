@@ -15,6 +15,9 @@ from shared import (
     FactEnergyDaily,
     EnvironmentalMetrics,
     DairyProduction,
+    FactSolarHourly,
+    FactSolarDaily,
+    FactSolarMonthly,
 )
 from . import BaseCoreDAO
 
@@ -30,6 +33,9 @@ class DataDAO(BaseCoreDAO):
         'fact_energy_hourly': FactEnergyHourly,
         'fact_energy_daily': FactEnergyDaily,
         'dairy_production': DairyProduction,
+        'fact_solar_hourly': FactSolarHourly,
+        'fact_solar_daily': FactSolarDaily,
+        'fact_solar_monthly': FactSolarMonthly,
     }
 
     def __init__(self, connection, conflict_config: dict = None):

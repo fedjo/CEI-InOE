@@ -18,6 +18,7 @@ from shared import (
     StagingEnergyHourly,
     StagingEnergyDaily,
     StagingDairyProduction,
+    StagingSolarKpi,
 )
 from . import BaseCoreDAO
 
@@ -59,6 +60,9 @@ class StagingDAO(BaseCoreDAO):
         'energy_hourly': StagingEnergyHourly,
         'energy_daily': StagingEnergyDaily,
         'dairy_production': StagingDairyProduction,
+        'solar_hourly': StagingSolarKpi,
+        'solar_daily': StagingSolarKpi,
+        'solar_monthly': StagingSolarKpi,
     }
 
     def __init__(self, connection, dataset: str):

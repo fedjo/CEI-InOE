@@ -163,7 +163,6 @@ class EnergyHourlyRecord(BaseRecord):
     Database schema:
         - ts: TIMESTAMP NOT NULL
         - energy_kwh: FLOAT NOT NULL
-        - source_file: UUID FK
     """
     ts: datetime
     energy_kwh: float = Field(ge=0, le=10000, description="Hourly energy consumption in kWh")
@@ -191,7 +190,6 @@ class EnergyDailyRecord(BaseRecord):
     Database schema:
         - ts: DATE NOT NULL
         - energy_kwh: FLOAT NOT NULL
-        - source_file: UUID FK
     """
     ts: date
     energy_kwh: float = Field(ge=0, le=100000, description="Daily energy consumption in kWh")
@@ -227,7 +225,6 @@ class EnvironmentalMetricsRecord(BaseRecord):
         - wind_direction_sectors: DECIMAL(6, 2)
         - wind_angle: DECIMAL(6, 2)
         - pm2p5: DECIMAL(8, 2)
-        - source_file: UUID FK
     """
     timestamp: datetime
     temperature: float = Field(ge=-50, le=60, description="Temperature in Celsius")
@@ -310,6 +307,38 @@ class DairyProductionRecord(BaseRecord):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Solar Records (FusionSolar API)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class SolarRecord(BaseRecord):
+    """Station KPI record from FusionSolar API (hourly/daily/monthly)."""
+    ts: datetime
+
+    pv_yield_kwh: Optional[float] = None
+    inverter_yield_kwh: Optional[float] = None
+    inverter_power_kw: Optional[float] = None
+    ongrid_power_kwh: Optional[float] = None
+    buy_power_kwh: Optional[float] = None
+    use_power_kwh: Optional[float] = None
+    self_use_power_kwh: Optional[float] = None
+    self_provide_pct: Optional[float] = None
+    perpower_ratio: Optional[float] = None
+    installed_capacity_kwp: Optional[float] = None
+    power_profit: Optional[float] = None
+    reduction_total_co2: Optional[float] = None
+    reduction_total_coal: Optional[float] = None
+    reduction_total_tree: Optional[float] = None
+
+    @field_validator('ts', mode='before')
+    @classmethod
+    def parse_ts(cls, v):
+        """Handle epoch milliseconds from FusionSolar API."""
+        if isinstance(v, (int, float)):
+            return datetime.fromtimestamp(v / 1000.0) if v > 1e12 else datetime.fromtimestamp(v)
+        return parse_datetime_with_ampm(v) if isinstance(v, str) else v
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Model Registry
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -318,6 +347,9 @@ MODEL_REGISTRY: Dict[str, type[BaseRecord]] = {
     'energy_daily': EnergyDailyRecord,
     'environmental_metrics': EnvironmentalMetricsRecord,
     'dairy_production': DairyProductionRecord,
+    'solar_hourly': SolarRecord,
+    'solar_daily': SolarRecord,
+    'solar_monthly': SolarRecord,
 }
 
 

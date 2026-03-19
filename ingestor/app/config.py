@@ -79,6 +79,18 @@ TAGO_ENABLED = os.environ.get('TAGO_ENABLED', 'true').lower() == 'true'
 
 
 # ============================================================================
+# FusionSolar API Configuration
+# ============================================================================
+
+FUSIONSOLAR_API_URL = os.environ.get('FUSIONSOLAR_API_URL', 'https://intl.fusionsolar.huawei.com/thirdData')
+FUSIONSOLAR_USER = os.environ.get('FUSIONSOLAR_USER', '')
+FUSIONSOLAR_SYSTEM_CODE = os.environ.get('FUSIONSOLAR_SYSTEM_CODE', '')
+FUSIONSOLAR_POLL_INTERVAL = int(os.environ.get('FUSIONSOLAR_POLL_INTERVAL', '3600'))
+FUSIONSOLAR_LOOKBACK_DAYS = int(os.environ.get('FUSIONSOLAR_LOOKBACK_DAYS', '7'))
+FUSIONSOLAR_ENABLED = os.environ.get('FUSIONSOLAR_ENABLED', 'true').lower() == 'true'
+
+
+# ============================================================================
 # Site Configuration
 # ============================================================================
 
@@ -125,6 +137,21 @@ CONNECTOR_CONFIGS: Dict[str, Dict[str, Any]] = {
         'max_retries': 3,
         'mappings_dir': MAPPINGS_DIR,
         'enabled': TAGO_ENABLED,
+    },
+
+    # FusionSolar Station KPIs
+    'fusionsolar_station': {
+        'type': 'fusionsolar',
+        'base_url': FUSIONSOLAR_API_URL,
+        'user_name': FUSIONSOLAR_USER,
+        'system_code': FUSIONSOLAR_SYSTEM_CODE,
+        'schedule_seconds': FUSIONSOLAR_POLL_INTERVAL,
+        'lookback_days': FUSIONSOLAR_LOOKBACK_DAYS,
+        'timeout': 30,
+        'max_retries': 3,
+        'mappings_dir': MAPPINGS_DIR,
+        'granularities': ['hourly', 'daily', 'monthly'],
+        'enabled': bool(FUSIONSOLAR_USER and FUSIONSOLAR_SYSTEM_CODE) and FUSIONSOLAR_ENABLED,
     },
 }
 

@@ -24,6 +24,7 @@ from shared.models import (
     StagingEnergyHourly,
     StagingEnergyDaily,
     StagingDairyProduction,
+    StagingSolarKpi,
 )
 
 from shared.schemas import (
@@ -80,6 +81,10 @@ __all__ = [
     "StagingEnergyHourly",
     "StagingEnergyDaily",
     "StagingDairyProduction",
+    "StagingSolarKpi",
+    "FactSolarHourly",
+    "FactSolarDaily",
+    "FactSolarMonthly",
     # Schemas
     "GeoJSONPoint",
     "SiteRead",

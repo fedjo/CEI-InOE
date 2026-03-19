@@ -68,6 +68,26 @@ def _drop_solar_table(name):
     op.drop_table(name)
 
 
+def _create_staging_table(name):
+    op.create_table(
+        name,
+        sa.Column('staging_id', sa.Integer(), primary_key=True),
+        sa.Column('batch_id', postgresql.UUID(as_uuid=True),
+                  sa.ForeignKey('ingest_batch.batch_id')),
+        sa.Column('row_number', sa.Integer(), nullable=False),
+        sa.Column('granularity', sa.String(16), nullable=False, comment='hourly | daily | monthly'),
+        sa.Column('raw_data', postgresql.JSONB(), nullable=False),
+        sa.Column('transformed_data', postgresql.JSONB()),
+        sa.Column('validation_errors', postgresql.JSONB()),
+        sa.Column('is_valid', sa.Boolean(), server_default='false'),
+        sa.Column('loaded_to_final', sa.Boolean(), server_default='false'),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+    )
+    op.create_index(f'idx_{name}_batch', name, ['batch_id'])
+    op.create_index(f'idx_{name}_valid', name, ['is_valid', 'loaded_to_final'])
+    op.create_index(f'idx_{name}_granularity', name, ['granularity'])
+
+
 def upgrade() -> None:
     _create_solar_table(
         'fact_solar_hourly',
@@ -85,8 +105,15 @@ def upgrade() -> None:
         'uq_solar_monthly_batch_ts',
     )
 
+    _create_staging_table('staging_solar_kpi')
+
 
 def downgrade() -> None:
+    op.drop_index('idx_staging_solar_kpi_granularity', table_name='staging_solar_kpi')
+    op.drop_index('idx_staging_solar_kpi_valid', table_name='staging_solar_kpi')
+    op.drop_index('idx_staging_solar_kpi_batch', table_name='staging_solar_kpi')
+    op.drop_table('staging_solar_kpi')
+
     _drop_solar_table('fact_solar_monthly')
     _drop_solar_table('fact_solar_daily')
     _drop_solar_table('fact_solar_hourly')

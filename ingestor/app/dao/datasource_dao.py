@@ -106,6 +106,27 @@ class DatasourceDAO(BaseCoreDAO):
         rows = self.fetch_all(stmt)
         return [dict(row._mapping) for row in rows]
 
+    def get_solar_datasources(self) -> list[dict]:
+        """
+        Get all solar datasources with station_code in metadata.
+        Required for FusionSolar API.
+        """
+        stmt = select(
+            self.table.c.id,
+            self.table.c.external_id,
+            self.table.c.alias,
+            self.table.c.client,
+            self.table.c.metadata['station_code'].astext.label('station_code'),
+            self.table.c.metadata
+        ).where(
+            self.table.c.data_type == 'solar',
+            self.table.c.status == 'online',
+            self.table.c.metadata['station_code'].astext.isnot(None)
+        )
+
+        rows = self.fetch_all(stmt)
+        return [dict(row._mapping) for row in rows]
+
     def create(self, **kwargs) -> int:
         """Create a new datasource."""
         stmt = insert(self.table).values(**kwargs).returning(self.table.c.id)

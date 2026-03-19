@@ -690,3 +690,29 @@ class StagingDairyProduction(Base):
         Index("idx_staging_dairy_batch", "batch_id"),
         Index("idx_staging_dairy_valid", "is_valid", "loaded_to_final"),
     )
+
+
+class StagingSolarKpi(Base):
+    """Unified staging table for all solar KPI ingestion (hourly/daily/monthly)."""
+    __tablename__ = "staging_solar_kpi"
+
+    staging_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    batch_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True),
+                                                      ForeignKey("ingest_batch.batch_id"))
+    row_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    granularity: Mapped[str] = mapped_column(String(16), nullable=False, comment="hourly | daily | monthly")
+
+    raw_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    transformed_data: Mapped[Optional[dict]] = mapped_column(JSONB)
+    validation_errors: Mapped[Optional[dict]] = mapped_column(JSONB)
+
+    is_valid: Mapped[bool] = mapped_column(Boolean, default=False)
+    loaded_to_final: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_staging_solar_kpi_batch", "batch_id"),
+        Index("idx_staging_solar_kpi_valid", "is_valid", "loaded_to_final"),
+        Index("idx_staging_solar_kpi_granularity", "granularity"),
+    )
