@@ -428,6 +428,162 @@ class ApiFetchCursor(Base):
     )
 
 
+class FactSolarHourly(Base):
+    """Hourly KPIs from FusionSolar API."""
+    __tablename__ = "fact_solar_hourly"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # Generation
+    pv_yield_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="PV generation (kWh)")
+    inverter_yield_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Inverter yield (kWh)")
+    inverter_power_kw: Mapped[Optional[float]] = mapped_column(Float, comment="Inverter power (kW)")
+
+    # Grid exchange
+    ongrid_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Exported to grid (kWh)")
+    buy_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Imported from grid (kWh)")
+
+    # Consumption
+    use_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Site consumption (kWh)")
+    self_use_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="PV self-consumed (kWh)")
+
+    # Ratios
+    self_provide_pct: Mapped[Optional[float]] = mapped_column(Float, comment="Self-sufficiency (%)")
+    perpower_ratio: Mapped[Optional[float]] = mapped_column(Float, comment="Specific yield (kWh/kWp)")
+
+    # Plant metadata
+    installed_capacity_kwp: Mapped[Optional[float]] = mapped_column(Float, comment="Installed capacity (kWp)")
+
+    # Financial / environmental
+    power_profit: Mapped[Optional[float]] = mapped_column(Float, comment="Revenue / savings")
+    reduction_total_co2: Mapped[Optional[float]] = mapped_column(Float, comment="CO2 avoided")
+    reduction_total_coal: Mapped[Optional[float]] = mapped_column(Float, comment="Coal avoided")
+    reduction_total_tree: Mapped[Optional[float]] = mapped_column(Float, comment="Equivalent trees")
+
+    # Source tracking
+    source_type: Mapped[str] = mapped_column(String(32), default="api")
+    source_batch_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True),
+                                                             ForeignKey("ingest_batch.batch_id"))
+    source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
+    source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+
+    # Timestamps
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("source_batch_id", "ts", name="uq_solar_hourly_batch_ts"),
+        Index("idx_solar_hourly_ts", "ts"),
+        Index("idx_solar_hourly_source", "source_type", "source_device_id"),
+        Index("idx_solar_hourly_batch", "source_batch_id"),
+    )
+
+
+class FactSolarDaily(Base):
+    """Daily KPIs from FusionSolar API."""
+    __tablename__ = "fact_solar_daily"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ts: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Generation
+    pv_yield_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="PV generation (kWh)")
+    inverter_yield_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Inverter yield (kWh)")
+    inverter_power_kw: Mapped[Optional[float]] = mapped_column(Float, comment="Inverter power (kW)")
+
+    # Grid exchange
+    ongrid_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Exported to grid (kWh)")
+    buy_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Imported from grid (kWh)")
+
+    # Consumption
+    use_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Site consumption (kWh)")
+    self_use_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="PV self-consumed (kWh)")
+
+    # Ratios
+    self_provide_pct: Mapped[Optional[float]] = mapped_column(Float, comment="Self-sufficiency (%)")
+    perpower_ratio: Mapped[Optional[float]] = mapped_column(Float, comment="Specific yield (kWh/kWp)")
+
+    # Plant metadata
+    installed_capacity_kwp: Mapped[Optional[float]] = mapped_column(Float, comment="Installed capacity (kWp)")
+
+    # Financial / environmental
+    power_profit: Mapped[Optional[float]] = mapped_column(Float, comment="Revenue / savings")
+    reduction_total_co2: Mapped[Optional[float]] = mapped_column(Float, comment="CO2 avoided")
+    reduction_total_coal: Mapped[Optional[float]] = mapped_column(Float, comment="Coal avoided")
+    reduction_total_tree: Mapped[Optional[float]] = mapped_column(Float, comment="Equivalent trees")
+
+    # Source tracking
+    source_type: Mapped[str] = mapped_column(String(32), default="api")
+    source_batch_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True),
+                                                             ForeignKey("ingest_batch.batch_id"))
+    source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
+    source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+
+    # Timestamps
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("source_batch_id", "ts", name="uq_solar_daily_batch_ts"),
+        Index("idx_solar_daily_ts", "ts"),
+        Index("idx_solar_daily_source", "source_type", "source_device_id"),
+        Index("idx_solar_daily_batch", "source_batch_id"),
+    )
+
+
+class FactSolarMonthly(Base):
+    """Monthly KPIs from FusionSolar API."""
+    __tablename__ = "fact_solar_monthly"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ts: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Generation
+    pv_yield_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="PV generation (kWh)")
+    inverter_yield_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Inverter yield (kWh)")
+    inverter_power_kw: Mapped[Optional[float]] = mapped_column(Float, comment="Inverter power (kW)")
+
+    # Grid exchange
+    ongrid_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Exported to grid (kWh)")
+    buy_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Imported from grid (kWh)")
+
+    # Consumption
+    use_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="Site consumption (kWh)")
+    self_use_power_kwh: Mapped[Optional[float]] = mapped_column(Float, comment="PV self-consumed (kWh)")
+
+    # Ratios
+    self_provide_pct: Mapped[Optional[float]] = mapped_column(Float, comment="Self-sufficiency (%)")
+    perpower_ratio: Mapped[Optional[float]] = mapped_column(Float, comment="Specific yield (kWh/kWp)")
+
+    # Plant metadata
+    installed_capacity_kwp: Mapped[Optional[float]] = mapped_column(Float, comment="Installed capacity (kWp)")
+
+    # Financial / environmental
+    power_profit: Mapped[Optional[float]] = mapped_column(Float, comment="Revenue / savings")
+    reduction_total_co2: Mapped[Optional[float]] = mapped_column(Float, comment="CO2 avoided")
+    reduction_total_coal: Mapped[Optional[float]] = mapped_column(Float, comment="Coal avoided")
+    reduction_total_tree: Mapped[Optional[float]] = mapped_column(Float, comment="Equivalent trees")
+
+    # Source tracking
+    source_type: Mapped[str] = mapped_column(String(32), default="api")
+    source_batch_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True),
+                                                             ForeignKey("ingest_batch.batch_id"))
+    source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
+    source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+
+    # Timestamps
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("source_batch_id", "ts", name="uq_solar_monthly_batch_ts"),
+        Index("idx_solar_monthly_ts", "ts"),
+        Index("idx_solar_monthly_source", "source_type", "source_device_id"),
+        Index("idx_solar_monthly_batch", "source_batch_id"),
+    )
+
+
 # =============================================================================
 # Staging Tables
 # =============================================================================
