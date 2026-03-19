@@ -273,12 +273,13 @@ class AirbeldConnector(HttpConnector):
     # Helpers / Date Range / Cursor
     # -------------------------------------------------------------------------
     
-    def _get_date_range(self, ds_id: int) -> tuple[datetime, datetime]:
+    def _get_date_range(self, ds_id: int, external_id: str) -> tuple[datetime, datetime]:
         """Get start and end dates for fetch."""
         end_date = datetime.now()
 
         # Try to get last cursor from database
-        start_date = self._get_cursor_from_db(ds_id)
+        endpoint_id = external_id
+        start_date = self._get_cursor_from_db(ds_id, endpoint_id)
         
         if not start_date:
             # Fallback: query max timestamp from data table
@@ -295,7 +296,7 @@ class AirbeldConnector(HttpConnector):
 
         return start_date, end_date
     
-    def _get_cursor_from_db(self, ds_id: int) -> Optional[datetime]:
+    def _get_cursor_from_db(self, ds_id: int, endpoint_id: str) -> Optional[datetime]:
         """Get last fetch timestamp from cursor table using DAO."""
         try:
             from shared import get_connection
@@ -305,7 +306,7 @@ class AirbeldConnector(HttpConnector):
                 cursor_dao = CursorDAO(conn)
                 return cursor_dao.get_cursor(
                     connector_id=self.connector_id,
-                    endpoint_id=ds_id,
+                    endpoint_id=endpoint_id,
                     datasource_id=ds_id
                 )
             
