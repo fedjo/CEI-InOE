@@ -166,7 +166,6 @@ class FusionSolarConnector(BaseConnector):
                 'collectTime': collect_time,
             })
             body = resp.json()
-            print(body)  # debug
 
             if not body.get('success', False):
                 fail_code = body.get('failCode')

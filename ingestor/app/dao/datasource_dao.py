@@ -56,7 +56,7 @@ class DatasourceDAO(BaseCoreDAO):
         stmt = select(self.table.c.id).where(self.table.c.external_id == external_id)
         return self.scalar(stmt)
 
-    def get_by_type(self, data_type: str, status: str = 'active') -> list[dict]:
+    def get_by_type(self, data_type: str, status: str = 'online') -> list[dict]:
         """
         Get all datasources of a specific type.
 

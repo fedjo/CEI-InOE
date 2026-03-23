@@ -451,7 +451,6 @@ class HttpConnector(BaseConnector):
         endpoint_id = envelope.metadata.get('endpoint_id')
         datasource_id = envelope.hint_datasource_id
         cursor_value = envelope.metadata.get('cursor')
-        print(f"Saving cursor to DB: endpoint={endpoint_id}, datasource={datasource_id}, cursor={cursor_value}")
         if not all([endpoint_id, datasource_id, cursor_value]):
             return
 
