@@ -9,6 +9,7 @@ from .file_connector import FileConnector
 from .http_connector import HttpConnector
 from .airbeld_connector import AirbeldConnector
 from .tago_connector import TagoConnector
+from .fusionsolar_connector import FusionSolarConnector
 
 
 # Registry of connector types
@@ -17,9 +18,7 @@ CONNECTOR_TYPES: Dict[str, Type[BaseConnector]] = {
     'http': HttpConnector,
     'airbeld': AirbeldConnector,
     'tago': TagoConnector,
-    # Future connectors:
-    # 'cyric': CyricConnector,
-    # 'mqtt': MqttConnector,
+    'fusionsolar': FusionSolarConnector,
 }
 
 

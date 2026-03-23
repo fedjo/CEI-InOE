@@ -56,7 +56,7 @@ class DatasourceDAO(BaseCoreDAO):
         stmt = select(self.table.c.id).where(self.table.c.external_id == external_id)
         return self.scalar(stmt)
 
-    def get_by_type(self, data_type: str, status: str = 'active') -> list[dict]:
+    def get_by_type(self, data_type: str, status: str = 'online') -> list[dict]:
         """
         Get all datasources of a specific type.
 
@@ -101,6 +101,27 @@ class DatasourceDAO(BaseCoreDAO):
             self.table.c.data_type == 'energy',
             self.table.c.status == 'online',
             self.table.c.metadata['device_token'].astext.isnot(None)
+        )
+
+        rows = self.fetch_all(stmt)
+        return [dict(row._mapping) for row in rows]
+
+    def get_solar_datasources(self) -> list[dict]:
+        """
+        Get all solar datasources with station_code in metadata.
+        Required for FusionSolar API.
+        """
+        stmt = select(
+            self.table.c.id,
+            self.table.c.external_id,
+            self.table.c.alias,
+            self.table.c.client,
+            self.table.c.metadata['station_code'].astext.label('station_code'),
+            self.table.c.metadata
+        ).where(
+            self.table.c.data_type == 'solar',
+            self.table.c.status == 'online',
+            self.table.c.metadata['station_code'].astext.isnot(None)
         )
 
         rows = self.fetch_all(stmt)

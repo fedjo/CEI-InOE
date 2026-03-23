@@ -18,6 +18,7 @@ from shared import (
     StagingEnergyHourly,
     StagingEnergyDaily,
     StagingDairyProduction,
+    StagingSolarKpi,
 )
 from . import BaseCoreDAO
 
@@ -59,6 +60,9 @@ class StagingDAO(BaseCoreDAO):
         'energy_hourly': StagingEnergyHourly,
         'energy_daily': StagingEnergyDaily,
         'dairy_production': StagingDairyProduction,
+        'solar_hourly': StagingSolarKpi,
+        'solar_daily': StagingSolarKpi,
+        'solar_monthly': StagingSolarKpi,
     }
 
     def __init__(self, connection, dataset: str):
@@ -74,13 +78,19 @@ class StagingDAO(BaseCoreDAO):
         """Insert raw record into staging table."""
         sanitized_data = sanitize_for_json(raw_data)
 
-        stmt = insert(self.table).values(
+        values = dict(
             batch_id=batch_id,
             row_number=row_number,
             raw_data=sanitized_data,
             is_valid=False,
             loaded_to_final=False,
-        ).returning(self.table.c.staging_id)
+        )
+
+        # staging_solar_kpi requires a granularity discriminator
+        if hasattr(self.table.c, 'granularity') and self.dataset.startswith('solar_'):
+            values['granularity'] = self.dataset.replace('solar_', '')  # "hourly" / "daily" / "monthly"
+
+        stmt = insert(self.table).values(**values).returning(self.table.c.staging_id)
 
         return self.scalar(stmt)
 

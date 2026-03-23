@@ -1,0 +1,64 @@
+# Mapping for FusionSolar hourly station KPIs
+
+dataset: solar_hourly
+granularity: hourly
+
+columns:
+  ts: ts
+  pv_yield_kwh: pv_yield_kwh
+  inverter_yield_kwh: inverter_yield_kwh
+  inverter_power_kw: inverter_power_kw
+  ongrid_power_kwh: ongrid_power_kwh
+  buy_power_kwh: buy_power_kwh
+  use_power_kwh: use_power_kwh
+  self_use_power_kwh: self_use_power_kwh
+  self_provide_pct: self_provide_pct
+  perpower_ratio: perpower_ratio
+  installed_capacity_kwp: installed_capacity_kwp
+  power_profit: power_profit
+  reduction_total_co2: reduction_total_co2
+  reduction_total_coal: reduction_total_coal
+  reduction_total_tree: reduction_total_tree
+
+coercions:
+  ts: datetime_ms
+  pv_yield_kwh: float
+  inverter_yield_kwh: float
+  inverter_power_kw: float
+  ongrid_power_kwh: float
+  buy_power_kwh: float
+  use_power_kwh: float
+  self_use_power_kwh: float
+  self_provide_pct: float
+  perpower_ratio: float
+  installed_capacity_kwp: float
+  power_profit: float
+  reduction_total_co2: float
+  reduction_total_coal: float
+  reduction_total_tree: float
+
+validation_rules:
+  schema:
+    required:
+      - ts
+
+conflict_resolution:
+  strategy: update
+  on_columns:
+    - source_batch_id
+    - ts
+  update_columns:
+    - pv_yield_kwh
+    - inverter_yield_kwh
+    - inverter_power_kw
+    - ongrid_power_kwh
+    - buy_power_kwh
+    - use_power_kwh
+    - self_use_power_kwh
+    - self_provide_pct
+    - perpower_ratio
+    - installed_capacity_kwp
+    - power_profit
+
+target_table: fact_solar_hourly
+staging_table: staging_solar_kpi
