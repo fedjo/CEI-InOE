@@ -59,6 +59,7 @@ conflict_resolution:
   strategy: update
   on_columns:
     - production_date
+    - source_batch_id
   update_columns:
     - day_production_per_cow_kg
     - number_of_animals

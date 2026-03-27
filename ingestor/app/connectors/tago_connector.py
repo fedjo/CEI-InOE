@@ -246,7 +246,7 @@ class TagoConnector(HttpConnector):
         try:
             from shared import get_connection
             from dao import DatasourceDAO
-            
+
             with get_connection() as conn:
                 datasource_dao = DatasourceDAO(conn)
                 datasources = datasource_dao.get_energy_datasources_with_token()
@@ -263,18 +263,18 @@ class TagoConnector(HttpConnector):
                     for ds in datasources
                 ]
                 logger.debug(f"[{self.connector_id}] Loaded datasources: {[d['external_id'] for d in self._datasources]}")
-            
+
         except Exception as e:
             logger.error(f"[{self.connector_id}] Failed to load datasources: {e}")
             self._datasources = []
-    
+
     def _get_datasource(self, external_id: str) -> Optional[Dict[str, Any]]:
         """Find datasource by external ID."""
         for d in self._datasources:
             if d['external_id'] == external_id:
                 return d
         return None
-    
+
     # -------------------------------------------------------------------------
     # Date Range / Cursor Management
     # -------------------------------------------------------------------------

@@ -66,6 +66,7 @@ conflict_resolution:
   strategy: update  # update, ignore, fail, append
   on_columns:
     - timestamp
+    - source_batch_id
   update_columns:
     - atm_pressure
     - noise_level_db
