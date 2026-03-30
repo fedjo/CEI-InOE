@@ -2,10 +2,10 @@
 # Loaded on ingestor startup — upserted into the database.
 
 site:
-  name: "CEI Dairy Farm Demo"
+  name: "LK Dairy Farm"
   location:
     type: Point
-    coordinates: [23.7275, 37.9838]   # [longitude, latitude]
+    coordinates: [33.4126347, 35.0213149] 33.4126347 # [longitude, latitude]
   site_type: dairy_farm                # dairy_farm | factory | other
   owner:
     name: "Demo Organisation"
@@ -13,10 +13,6 @@ site:
     contact_email: owner@example.com
   administrator_email: admin@example.com
   data_sources:                        # external_ids of datasources belonging to this site
-    - "68f1fb6546b86e0009bf15bb"
-    - "68f1fb6546b86e0009bf15bc"
-    - "68f1fb6550bcae000b4c2501"
-    - "68f1fb65640d9e000b79873b"
     - "68fbe8f50ad75e000a4d2158"
     - "68fbe8f5374f09000ac4bbe1"
     - "68fbe8f56fe6f1000adeffcc"
@@ -27,4 +23,4 @@ site:
     - "68fbe8f5eb5462000945a324"
     - "68fbed1b76b75a000ae2401a"
     - "1236"
-    - NE=12345678
+    - NE=146462613

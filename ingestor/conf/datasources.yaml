@@ -270,7 +270,7 @@ datasources:
     source_category: api
     data_type: solar
     alias: "Blue Farm PV"
-    client: Embio HQ
+    client: LK Dairy Farm # This should be `Charalambides Embio Factory` but for the scope of development/testing we are associating it with the same site as the other LK Dairy Farm sources
     status: online
     metadata:
       station_code: "NE=146462613"  # from get_station_list()
