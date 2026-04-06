@@ -1,6 +1,6 @@
 # CEI-InOE
 
-> **Data ingestion and analytics edge platform** — part of the [O-CE](https://o-cei.eu/) project.
+> **Data ingestion and analytics edge platform** — part of the [O-CEI](https://o-cei.eu/) project.
 
 CEI-InOE collects energy consumption, environmental (weather), solar PV generation, and dairy production data from multiple external sources, runs ETL pipelines to validate and load data into a PostgreSQL data warehouse, and exposes the results through a REST API.
 
@@ -130,14 +130,7 @@ Copy `.env.example` to `.env` and fill in values. Key variables:
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [API Architecture](docs/API_ARCHITECTURE.md) | Platform diagram, auth, request lifecycle |
-| [API Reference](docs/API_REFERENCE.md) | All endpoints with examples |
-| [Ingestor Architecture](docs/INGESTOR_ARCHITECTURE.md) | Pipeline, connectors, worker pool, DAOs |
-| [Database Schema](docs/INGESTOR_DATABASE_SCHEMA.md) | All tables, SQL, indexes, migration history |
-| [Schema Change Guide](docs/SCHEMA_CHANGE_GUIDE.md) | How to add/modify columns and tables safely |
-| [Migration Guide](docs/MIGRATION_GUIDE.md) | Flyway → Alembic migration history |
+You can find more details documentation on the project [wiki](https://github.com/fedjo/CEI-InOE/wiki).
 
 ---
 
