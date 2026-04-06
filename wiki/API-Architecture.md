@@ -1,5 +1,3 @@
-[[Home]] | [[API-Architecture]] | [[API-Reference]] | [[Ingestor-Architecture]] | [[Ingestor-Database-Schema]] | [[Schema-Change-Guide]] | [[Migration-Guide]]
----
 
 # CEI-InOE API Architecture
 
