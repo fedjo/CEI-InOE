@@ -1,3 +1,6 @@
+[[Home]] | [[API-Architecture]] | [[API-Reference]] | [[Ingestor-Architecture]] | [[Ingestor-Database-Schema]] | [[Schema-Change-Guide]] | [[Migration-Guide]]
+---
+
 # CEI-InOE Ingestor Architecture
 
 ## Overview
@@ -18,13 +21,13 @@ The CEI-InOE Ingestor is a modular, connector-based data ingestion system design
 │           ▼                                                 ▼                │
 │  ┌────────────────────────────────────────┐   ┌────────────────────────────┐│
 │  │            Connectors                   │   │      PipelineRunner        ││
-│  │  ┌──────────┐ ┌──────────┐ ┌────────┐  │   │                            ││
-│  │  │  File    │ │  Tago    │ │Airbeld │  │   │  ┌──────────────────────┐  ││
-│  │  │Connector │ │Connector │ │Connector│  │   │  │    DataPipeline      │  ││
-│  │  └──────────┘ └──────────┘ └────────┘  │   │  │  validate→transform  │  ││
-│  │        │           │           │       │   │  │      →stage→load     │  ││
-│  │        ▼           ▼           ▼       │   │  └──────────────────────┘  ││
-│  │     InputEnvelope (standardized)       │   │             │              ││
+│  │  ┌──────┐ ┌──────┐ ┌────────┐ ┌──────┐ │   │                            ││
+│  │  │ File │ │ Tago │ │Airbeld │ │Fusion│ │   │  ┌──────────────────────┐  ││
+│  │  │ Conn │ │ Conn │ │ Conn   │ │Solar │ │   │  │    DataPipeline      │  ││
+│  │  └──────┘ └──────┘ └────────┘ └──────┘ │   │  │  validate→transform  │  ││
+│  │        │       │        │        │      │   │  │      →stage→load     │  ││
+│  │        ▼       ▼        ▼        ▼      │   │  └──────────────────────┘  ││
+│  │     InputEnvelope (standardized)        │   │             │              ││
 │  └────────────────────────────────────────┘   │             ▼              ││
 │                                               │  ┌──────────────────────┐  ││
 │                                               │  │      DAOFactory       │  ││
@@ -91,12 +94,13 @@ Connectors are responsible for discovering, fetching, and wrapping data into sta
 
 ```python
 class BaseConnector(ABC):
-    def start() -> None:       # Initialize resources
-    def stop() -> None:        # Cleanup resources
-    def discover() -> List[str]:  # Find available work items
+    def start() -> None:                        # Initialize resources
+    def stop() -> None:                         # Cleanup resources
+    def discover() -> List[str]:               # Find available work items
     def fetch(item_id: str) -> Optional[InputEnvelope]:  # Fetch and wrap data
-    def ack(envelope: InputEnvelope) -> None:   # Mark success
+    def ack(envelope: InputEnvelope) -> None:  # Mark success
     def fail(envelope: InputEnvelope, error: str) -> None:  # Mark failure
+    def health() -> dict:                      # Health status
 ```
 
 #### InputEnvelope
@@ -123,12 +127,13 @@ class InputEnvelope(BaseModel):
 
 #### Available Connectors
 
-| Connector | Type | Description | Authentication |
-|-----------|------|-------------|----------------|
-| `FileConnector` | file | Watches directory for CSV/Excel files | N/A |
-| `TagoConnector` | tago | Tago.io energy API (hourly/daily) | Per-device token |
-| `AirbeldConnector` | airbeld | Airbeld environmental sensors | OAuth email/password |
-| `HttpConnector` | http | Generic REST API (base class) | Bearer, API key, OAuth |
+| Connector | Type | Description | Authentication | Schedule |
+|-----------|------|-------------|----------------|----------|
+| `FileConnector` | file | Watches `/data/incoming` for CSV/Excel files | N/A | Every 5 s (FILE_POLL_INTERVAL) |
+| `TagoConnector` | tago | Tago.io energy API (hourly/daily) | Per-device token header | Every 1 hr (TAGO_POLL_INTERVAL) |
+| `AirbeldConnector` | airbeld | Airbeld environmental/weather sensors | OAuth email/password | Every 12 hr (AIRBELD_POLL_INTERVAL) |
+| `FusionSolarConnector` | fusionsolar | Huawei FusionSolar PV station API | Username/system code | Every 1 hr (FUSIONSOLAR_POLL_INTERVAL) |
+| `HttpConnector` | http | Generic REST API (base class for API connectors) | Bearer, API key, OAuth | N/A (base class) |
 
 ### 4. PipelineRunner (`pipeline_runner.py`)
 
@@ -139,22 +144,22 @@ Orchestrates the complete ingestion workflow for a single `InputEnvelope`:
 │                      PipelineRunner.run()                        │
 ├─────────────────────────────────────────────────────────────────┤
 │  1. Check Duplicates                                             │
-│     └─► IngestFileDAO.exists_by_sha256(envelope.metadata.sha256)│
+│     └─► BatchDAO.exists_by_sha256(envelope.metadata.sha256)     │
 │                                                                  │
 │  2. Load YAML Mapping                                            │
 │     └─► Parse hint_mapping file                                  │
 │                                                                  │
-│  3. Resolve Device                                               │
-│     └─► DeviceDAO.get_by_device_id(hint_device_id)              │
+│  3. Resolve Datasource                                           │
+│     └─► DatasourceDAO.get_by_external_id(hint_device_id)        │
 │                                                                  │
-│  4. Register Input                                               │
-│     └─► IngestFileDAO.register() → file_id UUID                 │
+│  4. Register Batch                                               │
+│     └─► BatchDAO.register() → batch_id UUID                     │
 │                                                                  │
 │  5. Execute Pipeline                                             │
 │     └─► DataPipeline(conn, mapping, context).execute(records)   │
 │                                                                  │
 │  6. Update Metrics                                               │
-│     └─► IngestFileDAO.update_metrics(quality_score, etc.)       │
+│     └─► BatchDAO.update_metrics(quality_score, etc.)            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -175,7 +180,7 @@ Pipeline Stages:
 ├───────────┼──────────────────────────────────────────────────────┤
 │   LOAD    │  Move valid records from staging → final table       │
 │           │  - Conflict resolution (update/ignore/fail)          │
-│           │  - Device ID injection for fact tables               │
+│           │  - datasource_id injection for fact tables           │
 └───────────┴──────────────────────────────────────────────────────┘
 ```
 
@@ -194,12 +199,12 @@ Centralized database access through the `DAOFactory`:
 
 ```python
 dao = DAOFactory(connection)
-dao.device         # DeviceDAO - device lookup
-dao.ingest_file    # IngestFileDAO - file registration/dedup
+dao.datasource      # DatasourceDAO - datasource lookup
+dao.batch           # BatchDAO - ingest batch registration/dedup
 dao.staging('energy_hourly')  # StagingDAO - staging operations
 dao.data(conflict_config)     # DataDAO - final table inserts
-dao.pipeline       # PipelineDAO - execution logging
-dao.cursor         # CursorDAO - API cursor tracking
+dao.pipeline        # PipelineDAO - execution logging
+dao.cursor          # CursorDAO - API cursor tracking
 ```
 
 ## Data Flow
@@ -221,8 +226,8 @@ dao.cursor         # CursorDAO - API cursor tracking
              │ runner.run() │
              └──────┬───────┘
                     │
-      ┌─────────────┼─────────────┐
-      ▼             ▼             ▼
+      ┌─────────────┼──────────────┐
+      ▼             ▼              ▼
 ┌──────────┐  ┌──────────┐  ┌──────────┐
 │ staging_ │  │ staging_ │  │ staging_ │
 │ energy   │  │ environ  │  │ dairy    │
@@ -283,7 +288,7 @@ All records pass through staging tables before final tables:
 - Audit trail via `loaded_to_final` flag
 
 ### 3. Idempotency
-- Files: SHA256 hash stored in `ingest_file.sha256`
+- Files: SHA256 hash stored in `ingest_batch.file_sha256`
 - APIs: Cursor tracking in `api_fetch_cursor` table
 - Pipeline: `DuplicateInputError` raised for known inputs
 
@@ -319,27 +324,28 @@ ingestor/
     ├── models.py             # Pydantic data models (BaseRecord, EnergyHourlyRecord, etc.)
     ├── pydantic_transformer.py # Unified validation + transformation
     ├── validation.py         # ValidationResult, SchemaValidator, TypeValidator
-    ├── staging.py            # Legacy wrapper (deprecated, use DAOs)
     │
     ├── connectors/           # Data source connectors
-    │   ├── __init__.py
     │   ├── base.py           # BaseConnector, InputEnvelope, ConnectorStatus
     │   ├── registry.py       # create_connector() factory
     │   ├── file_connector.py # CSV/Excel file watcher
-    │   ├── http_connector.py # Generic REST API client
+    │   ├── http_connector.py # Generic REST API client (base for API connectors)
     │   ├── tago_connector.py # Tago.io energy API
-    │   └── airbeld_connector.py # Airbeld environmental API
+    │   ├── airbeld_connector.py  # Airbeld environmental/weather API
+    │   └── fusionsolar_connector.py  # Huawei FusionSolar PV API
     │
     ├── dao/                  # Data Access Objects
-    │   ├── __init__.py       # Public exports
-    │   ├── base.py           # BaseDAO with cursor management
     │   ├── factory.py        # DAOFactory for centralized access
-    │   ├── device_dao.py     # generic_device operations
-    │   ├── ingest_file_dao.py # File registration + dedup
+    │   ├── datasource_dao.py # datasource lookup
+    │   ├── batch_dao.py      # ingest_batch registration + deduplication
     │   ├── staging_dao.py    # Staging table operations
     │   ├── data_dao.py       # Final table inserts with conflict resolution
     │   ├── pipeline_dao.py   # Execution + quality logging
     │   └── cursor_dao.py     # API cursor tracking
+    │
+    ├── conf/
+    │   ├── datasources.yaml  # 27 datasource definitions (Tago, Airbeld, FusionSolar, File)
+    │   └── site_config.yaml  # Site metadata
     │
     ├── mappings/             # YAML dataset configurations
     │   ├── energy_hourly.yaml
@@ -348,7 +354,10 @@ ingestor/
     │   ├── dairy_production.yaml
     │   ├── api_energy_hourly.yaml
     │   ├── api_energy_daily.yaml
-    │   └── api_environmental_metrics.yaml
+    │   ├── api_environmental_metrics.yaml
+    │   ├── api_solar_hourly.yaml
+    │   ├── api_solar_daily.yaml
+    │   └── api_solar_monthly.yaml
     │
     └── tests/                # Unit tests
         ├── test_models.py
@@ -362,16 +371,32 @@ ingestor/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_DSN` | - | PostgreSQL connection string |
-| `NUM_WORKERS` | 2 | Number of worker threads |
-| `QUEUE_MAX_SIZE` | 100 | Maximum queue capacity |
-| `LOG_LEVEL` | INFO | Logging verbosity |
-| `WATCH_DIR` | /data/incoming | File connector watch directory |
-| `PROCESSED_DIR` | /data/processed | Processed files directory |
-| `REJECTED_DIR` | /data/rejected | Failed files directory |
-| `TAGO_ENABLED` | true | Enable Tago.io connector |
-| `TAGO_POLL_INTERVAL` | 3600 | Tago polling interval (seconds) |
-| `AIRBELD_POLL_INTERVAL` | 43200 | Airbeld polling interval (seconds) |
+| `DB_DSN` | — | PostgreSQL connection string (required) |
+| `NUM_WORKERS` | `2` | Number of worker threads |
+| `QUEUE_MAX_SIZE` | `100` | Maximum queue capacity |
+| `LOG_LEVEL` | `INFO` | Logging verbosity |
+| `WATCH_DIR` | `/data/incoming` | File connector watch directory |
+| `PROCESSED_DIR` | `/data/processed` | Processed files directory |
+| `REJECTED_DIR` | `/data/rejected` | Failed files directory |
+| `MAPPINGS_DIR` | `/app/mappings` | YAML mappings directory |
+| `FILE_POLL_INTERVAL` | `5` | File polling interval (seconds) |
+| `FILE_STABLE_SECONDS` | `3` | File stability wait before reading (seconds) |
+| `TAGO_ENABLED` | `true` | Enable Tago.io connector |
+| `TAGO_API_URL` | `https://api.tago.io` | Tago.io base URL |
+| `TAGO_POLL_INTERVAL` | `3600` | Tago polling interval (seconds) |
+| `TAGO_LOOKBACK_DAYS` | `7` | Tago lookback if no cursor |
+| `AIRBELD_API_URL` | — | Airbeld API base URL |
+| `AIRBELD_EMAIL` | — | Airbeld account email |
+| `AIRBELD_PASSWORD` | — | Airbeld account password |
+| `AIRBELD_POLL_INTERVAL` | `43200` | Airbeld polling interval (seconds) |
+| `AIRBELD_LOOKBACK_DAYS` | `7` | Airbeld lookback if no cursor |
+| `FUSIONSOLAR_ENABLED` | `true` | Enable FusionSolar connector |
+| `FUSIONSOLAR_API_URL` | `https://intl.fusionsolar.huawei.com/thirdData` | FusionSolar API URL |
+| `FUSIONSOLAR_USER` | — | FusionSolar username |
+| `FUSIONSOLAR_SYSTEM_CODE` | — | FusionSolar system code |
+| `FUSIONSOLAR_POLL_INTERVAL` | `3600` | FusionSolar polling interval (seconds) |
+| `FUSIONSOLAR_LOOKBACK_DAYS` | `30` | FusionSolar lookback if no cursor |
+| `CONF_DIR` | `/app/conf` | Configuration files directory |
 
 ### YAML Mapping Example
 
@@ -404,7 +429,7 @@ validation_rules:
 conflict_resolution:
   strategy: update           # update | ignore | fail | append
   on_columns:
-    - device_id
+    - source_batch_id
     - ts
   update_columns:
     - energy_kwh
@@ -417,19 +442,13 @@ staging_table: staging_energy_hourly
 ## Adding a New Connector
 
 1. Create connector class extending `BaseConnector` or `HttpConnector`
-2. Implement required methods: `start()`, `stop()`, `discover()`, `fetch()`, `ack()`, `fail()`
+2. Implement required methods: `start()`, `stop()`, `discover()`, `fetch()`, `ack()`, `fail()`, `health()`
 3. Register in `connectors/registry.py`:
    ```python
    CONNECTOR_TYPES['myapi'] = MyApiConnector
    ```
-4. Add configuration in `config.py`:
-   ```python
-   CONNECTOR_CONFIGS['my_connector'] = {
-       'type': 'myapi',
-       'schedule_seconds': 3600,
-       ...
-   }
-   ```
+4. Add entry in `ingestor/conf/datasources.yaml` for each datasource it manages
+5. Add environment variables in `config.py` for credentials and scheduling
 
 ## Adding a New Dataset
 
@@ -437,4 +456,7 @@ staging_table: staging_energy_hourly
 2. Register in `MODEL_REGISTRY`
 3. Create YAML mapping in `mappings/`
 4. Add staging table mapping in `StagingDAO.STAGING_TABLES`
-5. Create database migrations for staging and final tables
+5. Add SQLAlchemy model to `shared/src/shared/models.py`
+6. Run `alembic revision --autogenerate -m "add_<dataset>_tables"`
+7. Add Pydantic schema to `shared/src/shared/schemas.py`
+8. Add API router + query module if queryable via the API

@@ -1,3 +1,6 @@
+[[Home]] | [[API-Architecture]] | [[API-Reference]] | [[Ingestor-Architecture]] | [[Ingestor-Database-Schema]] | [[Schema-Change-Guide]] | [[Migration-Guide]]
+---
+
 # Schema Change Guide
 
 This guide explains how to handle database schema changes and their impact on the CEI-InOE services.
