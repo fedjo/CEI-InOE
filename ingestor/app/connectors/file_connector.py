@@ -14,6 +14,8 @@ import pandas as pd
 from pydantic import BaseModel
 
 from models import SourceType
+from preprocessors import preprocess_delaval
+from preprocessors.delaval import is_delaval_format
 
 from .base import BaseConnector, ConnectorStatus, InputEnvelope
 
@@ -195,8 +197,8 @@ class FileConnector(BaseConnector):
                 sha256.update(chunk)
         return sha256.hexdigest()
 
-    def _read_file(self, path: str, content_type: str) -> Optional[List[Dict]]:
-        """Read file as list of dicts."""
+    def _read_file(self, path: str, content_type: str, preprocessor: Optional[str] = None) -> Optional[List[Dict]]:
+        """Read file as list of dicts, optionally applying a preprocessor."""
         try:
             if content_type == "excel":
                 df = pd.read_excel(path)
@@ -205,6 +207,12 @@ class FileConnector(BaseConnector):
 
             df = df.dropna(how='all')
             df = df.replace({pd.NA: None, float('nan'): None})
+
+            # Check if Delaval format and apply preprocessor
+            if preprocessor == 'delaval' or is_delaval_format(list(df.columns)):
+                logger.info(f"[{self.connector_id}] Applying Delaval preprocessor")
+                raw_records = df.to_dict('records')
+                return preprocess_delaval(raw_records)
 
             # Remove summary rows
             if 'Date' in df.columns:
@@ -257,7 +265,15 @@ class FileConnector(BaseConnector):
             cols = {c.lower() for c in df.columns}
             
             # Detect by columns
-            if (cols & {'pm10', 'pm2p5', 'humidity', 'temperature', 'atm_pressure'} or \
+            # Check for Delaval format FIRST (before generic dairy)
+            if is_delaval_format(list(df.columns)):
+                mapping = 'delaval_dairy_production'
+                datasource_ext_id = 'delaval'
+                # Extract parlour name from filename if present
+                parlour_match = re.search(r'parlour\s*(\w+)', fname, re.IGNORECASE)
+                if parlour_match:
+                    datasource_ext_id = f"delaval_{parlour_match.group(1).lower()}"
+            elif (cols & {'pm10', 'pm2p5', 'humidity', 'temperature', 'atm_pressure'} or \
                 any ('µg/m' in c or 'hpa' in c.lower() for c in df.columns)):
                 mapping = 'environmental_metrics'
                 tokens = fname.split('_')

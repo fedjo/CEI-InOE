@@ -9,7 +9,7 @@ datasources:
     data_type: milk
     alias: farm milking system 1
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata: {}
 
   - external_id: delaval
@@ -26,7 +26,7 @@ datasources:
     data_type: energy
     alias: DB-Fan Main
     client: Blue Farm Dairy
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9372
       alias: DB-Fan Main
@@ -37,7 +37,7 @@ datasources:
     data_type: energy
     alias: DB-G Fridge Compressor 1
     client: Blue Farm Dairy
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9578
       alias: DB-G Fridge Compressor 1
@@ -48,7 +48,7 @@ datasources:
     data_type: energy
     alias: DB-G Fridge Compressor 2
     client: Blue Farm Dairy
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9619
       alias: DB-G Fridge Compressor 2
@@ -59,7 +59,7 @@ datasources:
     data_type: energy
     alias: DB-G Fridge Milk Agitator
     client: Blue Farm Dairy
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9672
       alias: DB-G Fridge Milk Agitator
@@ -70,7 +70,7 @@ datasources:
     data_type: energy
     alias: DB-G Milking Units 1
     client: Blue Farm Dairy
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9709
       alias: DB-G Milking Units 1
@@ -81,7 +81,7 @@ datasources:
     data_type: energy
     alias: DB-G Milking Units 2
     client: Blue Farm Dairy
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9616
       alias: DB-G Milking Units 2
@@ -92,7 +92,7 @@ datasources:
     data_type: energy
     alias: DB-G Ventilation Fans 1
     client: Blue Farm Dairy
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_6617
       alias: DB-G Ventilation Fans 1
@@ -104,7 +104,7 @@ datasources:
     data_type: energy
     alias: DB-Fridge Compressor Atlas
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9658
       alias: DB-Fridge Compressor Atlas
@@ -115,7 +115,7 @@ datasources:
     data_type: energy
     alias: DB-Fridge Fridge
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9344
       alias: DB-Fridge Fridge
@@ -126,7 +126,7 @@ datasources:
     data_type: energy
     alias: DB-Fridge Hot Water
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9633
       alias: DB-Fridge Hot Water
@@ -137,7 +137,7 @@ datasources:
     data_type: energy
     alias: Engine Room - Hot Water
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_6524
       alias: Engine Room - Hot Water
@@ -148,7 +148,7 @@ datasources:
     data_type: energy
     alias: MDB-Milos Main
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_6759
       alias: MDB-Milos Main
@@ -159,7 +159,7 @@ datasources:
     data_type: energy
     alias: SMDB-1 Milk Processing Facilities 1
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_9782
       alias: SMDB-1 Milk Processing Facilities 1
@@ -170,7 +170,7 @@ datasources:
     data_type: energy
     alias: SMDB-1 Milk Processing Facilities 2
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_6756
       alias: SMDB-1 Milk Processing Facilities 2
@@ -181,7 +181,7 @@ datasources:
     data_type: energy
     alias: SMDB-1 Ventilation Fans
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata:
       name: eastron_sdm630_6927
       alias: SMDB-1 Ventilation Fans
@@ -249,7 +249,7 @@ datasources:
     data_type: weather
     alias: O-CEI Airbeld weather 1
     client: LK Dairy Farm
-    status: online
+    status: offline
     metadata:
       type: Outdoors
       isLocked: false
@@ -260,7 +260,7 @@ datasources:
     data_type: weather
     alias: O-CEI Airbeld weather
     client: Charalambides Embio Factory
-    status: online
+    status: offline
     metadata:
       type: Outdoors
       isLocked: false
@@ -271,6 +271,6 @@ datasources:
     data_type: solar
     alias: "Blue Farm PV"
     client: LK Dairy Farm # This should be `Charalambides Embio Factory` but for the scope of development/testing we are associating it with the same site as the other LK Dairy Farm sources
-    status: online
+    status: offline
     metadata:
       station_code: "NE=146462613"  # from get_station_list()
