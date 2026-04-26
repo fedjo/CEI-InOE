@@ -29,7 +29,7 @@ site:
   name: "Blue Farm Dairy"
   location:
     type: Point
-    coordinates: [33.5166347, 33.0213149] # [longitude, latitude]
+    coordinates: [33.4126347, 35.0213149] # [longitude, latitude]
   site_type: dairy_farm                # dairy_farm | factory | other
   owner:
     name: "Demo Organisation"
