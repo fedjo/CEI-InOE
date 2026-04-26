@@ -440,6 +440,129 @@ class ApiFetchCursor(Base):
     )
 
 
+# =============================================================================
+# Weather Forecast Tables
+# =============================================================================
+
+class FactWeatherForecast(Base):
+    """Hourly weather forecast data from Open-Meteo (or compatible providers).
+
+    Each row is one forecast hour from one model run. The composite unique key
+    (forecast_run_at, valid_at, site_id) lets multiple overlapping runs coexist
+    so forecast accuracy can be evaluated across time horizons.
+    """
+    __tablename__ = "fact_weather_forecast"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # Temporal keys
+    forecast_run_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        comment="When the NWP model run was issued")
+    valid_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        comment="The hour being forecasted")
+    horizon_hours: Mapped[int] = mapped_column(
+        Integer, nullable=False,
+        comment="valid_at − forecast_run_at in whole hours")
+
+    # Location
+    site_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("site.id"), nullable=False)
+
+    # Solar radiation
+    shortwave_radiation_wm2: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Global Horizontal Irradiance (W/m²)")
+    direct_radiation_wm2: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Direct horizontal irradiance (W/m²)")
+    direct_normal_irradiance_wm2: Mapped[Optional[float]] = mapped_column(
+        Float, comment="DNI perpendicular to sun (W/m²)")
+    diffuse_radiation_wm2: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Diffuse horizontal irradiance (W/m²)")
+    global_tilted_irradiance_wm2: Mapped[Optional[float]] = mapped_column(
+        Float, comment="GTI on panel tilt/azimuth (W/m²)")
+
+    # Cloud cover
+    cloud_cover_pct: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Total cloud cover (%)")
+    cloud_cover_low_pct: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Low clouds 0–3 km (%)")
+    cloud_cover_mid_pct: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Mid clouds 3–8 km (%)")
+    cloud_cover_high_pct: Mapped[Optional[float]] = mapped_column(
+        Float, comment="High clouds >8 km (%)")
+
+    # Supporting weather
+    temperature_2m_c: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Air temperature 2 m (°C)")
+    wind_speed_10m_ms: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Wind speed 10 m (m/s)")
+    wind_direction_10m_deg: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Wind direction 10 m (°)")
+    precipitation_mm: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Precipitation preceding hour (mm)")
+    weather_code: Mapped[Optional[int]] = mapped_column(
+        Integer, comment="WMO weather interpretation code")
+
+    # Derived
+    sunshine_duration_s: Mapped[Optional[float]] = mapped_column(
+        Float, comment="Seconds of sunshine in the hour")
+    is_day: Mapped[Optional[bool]] = mapped_column(
+        Boolean, comment="True if daylight, False if night")
+
+    # Model metadata
+    model_id: Mapped[str] = mapped_column(
+        String(32), default="best_match",
+        comment="NWP model used: best_match, icon, ifs, etc.")
+
+    # Source tracking (standard pattern)
+    source_type: Mapped[str] = mapped_column(String(32), default="api")
+    source_batch_id: Mapped[Optional[UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ingest_batch.batch_id"))
+    source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
+    source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+
+    ingested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("forecast_run_at", "valid_at", "site_id",
+                         name="uq_forecast_run_valid_site"),
+        Index("idx_forecast_valid_at", "valid_at"),
+        Index("idx_forecast_run", "forecast_run_at"),
+        Index("idx_forecast_site", "site_id"),
+        Index("idx_forecast_horizon", "horizon_hours"),
+        Index("idx_forecast_batch", "source_batch_id"),
+    )
+
+
+class StagingWeatherForecast(Base):
+    """Staging table for weather forecast ingestion."""
+    __tablename__ = "staging_weather_forecast"
+
+    staging_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    batch_id: Mapped[Optional[UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ingest_batch.batch_id"))
+    row_number: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    raw_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    transformed_data: Mapped[Optional[dict]] = mapped_column(JSONB)
+    validation_errors: Mapped[Optional[dict]] = mapped_column(JSONB)
+
+    is_valid: Mapped[bool] = mapped_column(Boolean, default=False)
+    loaded_to_final: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_staging_forecast_batch", "batch_id"),
+        Index("idx_staging_forecast_valid", "is_valid", "loaded_to_final"),
+    )
+
+
 class FactSolarHourly(Base):
     """Hourly KPIs from FusionSolar API."""
     __tablename__ = "fact_solar_hourly"

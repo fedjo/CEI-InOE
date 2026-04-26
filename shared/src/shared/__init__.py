@@ -20,11 +20,13 @@ from shared.models import (
     FactSolarDaily,
     FactSolarHourly,
     FactSolarMonthly,
+    FactWeatherForecast,
     StagingEnvironmentalMetrics,
     StagingEnergyHourly,
     StagingEnergyDaily,
     StagingDairyProduction,
     StagingSolarKpi,
+    StagingWeatherForecast,
 )
 
 from shared.schemas import (
@@ -47,6 +49,7 @@ from shared.schemas import (
     DairyProductionMonthlySummary,
     PipelineExecutionRead,
     DataQualityCheckRead,
+    WeatherForecastRead,
     PaginatedResponse,
     HealthResponse,
 )
@@ -85,6 +88,8 @@ __all__ = [
     "FactSolarHourly",
     "FactSolarDaily",
     "FactSolarMonthly",
+    "FactWeatherForecast",
+    "StagingWeatherForecast",
     # Schemas
     "GeoJSONPoint",
     "SiteRead",
@@ -105,6 +110,7 @@ __all__ = [
     "DairyProductionMonthlySummary",
     "PipelineExecutionRead",
     "DataQualityCheckRead",
+    "WeatherForecastRead",
     "PaginatedResponse",
     "HealthResponse",
     # Database utilities
