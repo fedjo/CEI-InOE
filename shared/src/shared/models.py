@@ -217,6 +217,7 @@ class FactEnergyHourly(Base):
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+    datasource_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("datasource.id"))
 
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -224,9 +225,11 @@ class FactEnergyHourly(Base):
 
     __table_args__ = (
         UniqueConstraint("source_batch_id", "ts", name="uq_energy_hourly_batch_ts"),
+        UniqueConstraint("datasource_id", "ts", name="uq_energy_hourly_datasource_ts"),
         Index("idx_energy_hourly_ts", "ts"),
         Index("idx_energy_hourly_source", "source_type", "source_device_id"),
         Index("idx_energy_hourly_batch", "source_batch_id"),
+        Index("idx_energy_hourly_datasource", "datasource_id"),
     )
 
 
@@ -244,6 +247,7 @@ class FactEnergyDaily(Base):
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+    datasource_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("datasource.id"))
 
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -251,9 +255,11 @@ class FactEnergyDaily(Base):
 
     __table_args__ = (
         UniqueConstraint("source_batch_id", "ts", name="uq_energy_daily_batch_ts"),
+        UniqueConstraint("datasource_id", "ts", name="uq_energy_daily_datasource_ts"),
         Index("idx_energy_daily_ts", "ts"),
         Index("idx_energy_daily_source", "source_type", "source_device_id"),
         Index("idx_energy_daily_batch", "source_batch_id"),
+        Index("idx_energy_daily_datasource", "datasource_id"),
     )
 
 
@@ -281,6 +287,7 @@ class EnvironmentalMetrics(Base):
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+    datasource_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("datasource.id"))
 
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -288,9 +295,11 @@ class EnvironmentalMetrics(Base):
 
     __table_args__ = (
         UniqueConstraint("source_batch_id", "timestamp", name="uq_env_metrics_batch_ts"),
+        UniqueConstraint("datasource_id", "timestamp", name="uq_env_metrics_datasource_ts"),
         Index("idx_env_metrics_timestamp", "timestamp"),
         Index("idx_env_metrics_source", "source_type", "source_device_id"),
         Index("idx_env_metrics_batch", "source_batch_id"),
+        Index("idx_env_metrics_datasource", "datasource_id"),
     )
 
 
@@ -318,15 +327,18 @@ class DairyProduction(Base):
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+    datasource_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("datasource.id"))
 
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
         UniqueConstraint("source_batch_id", "production_date", name="uq_dairy_batch_date"),
+        UniqueConstraint("datasource_id", "production_date", name="uq_dairy_datasource_date"),
         Index("idx_dairy_production_date", "production_date"),
         Index("idx_dairy_source", "source_type", "source_device_id"),
         Index("idx_dairy_batch", "source_batch_id"),
+        Index("idx_dairy_datasource", "datasource_id"),
     )
 
 
@@ -415,7 +427,7 @@ class ApiFetchCursor(Base):
     last_fetch_timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_fetch_success: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     fetch_count: Mapped[int] = mapped_column(Integer, default=1)
-    
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
@@ -467,6 +479,7 @@ class FactSolarHourly(Base):
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+    datasource_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("datasource.id"))
 
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -474,9 +487,11 @@ class FactSolarHourly(Base):
 
     __table_args__ = (
         UniqueConstraint("source_batch_id", "ts", name="uq_solar_hourly_batch_ts"),
+        UniqueConstraint("datasource_id", "ts", name="uq_solar_hourly_datasource_ts"),
         Index("idx_solar_hourly_ts", "ts"),
         Index("idx_solar_hourly_source", "source_type", "source_device_id"),
         Index("idx_solar_hourly_batch", "source_batch_id"),
+        Index("idx_solar_hourly_datasource", "datasource_id"),
     )
 
 
@@ -519,6 +534,7 @@ class FactSolarDaily(Base):
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+    datasource_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("datasource.id"))
 
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -526,9 +542,11 @@ class FactSolarDaily(Base):
 
     __table_args__ = (
         UniqueConstraint("source_batch_id", "ts", name="uq_solar_daily_batch_ts"),
+        UniqueConstraint("datasource_id", "ts", name="uq_solar_daily_datasource_ts"),
         Index("idx_solar_daily_ts", "ts"),
         Index("idx_solar_daily_source", "source_type", "source_device_id"),
         Index("idx_solar_daily_batch", "source_batch_id"),
+        Index("idx_solar_daily_datasource", "datasource_id"),
     )
 
 
@@ -571,6 +589,7 @@ class FactSolarMonthly(Base):
                                                              ForeignKey("ingest_batch.batch_id"))
     source_api_endpoint: Mapped[Optional[str]] = mapped_column(Text)
     source_device_id: Mapped[Optional[str]] = mapped_column(String(64))
+    datasource_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("datasource.id"))
 
     # Timestamps
     ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -578,9 +597,11 @@ class FactSolarMonthly(Base):
 
     __table_args__ = (
         UniqueConstraint("source_batch_id", "ts", name="uq_solar_monthly_batch_ts"),
+        UniqueConstraint("datasource_id", "ts", name="uq_solar_monthly_datasource_ts"),
         Index("idx_solar_monthly_ts", "ts"),
         Index("idx_solar_monthly_source", "source_type", "source_device_id"),
         Index("idx_solar_monthly_batch", "source_batch_id"),
+        Index("idx_solar_monthly_datasource", "datasource_id"),
     )
 
 
