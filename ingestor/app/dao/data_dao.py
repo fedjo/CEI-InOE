@@ -18,6 +18,7 @@ from shared import (
     FactSolarHourly,
     FactSolarDaily,
     FactSolarMonthly,
+    FactWeatherForecast
 )
 from . import BaseCoreDAO
 
@@ -36,6 +37,7 @@ class DataDAO(BaseCoreDAO):
         'fact_solar_hourly': FactSolarHourly,
         'fact_solar_daily': FactSolarDaily,
         'fact_solar_monthly': FactSolarMonthly,
+        'fact_weather_forecast': FactWeatherForecast,
     }
 
     def __init__(self, connection, conflict_config: dict = None):

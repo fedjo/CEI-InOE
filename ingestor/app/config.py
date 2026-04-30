@@ -91,6 +91,23 @@ FUSIONSOLAR_ENABLED = os.environ.get('FUSIONSOLAR_ENABLED', 'true').lower() == '
 
 
 # ============================================================================
+# Open-Meteo Forecast API Configuration
+# ============================================================================
+
+# No API key required for non-commercial use (<10,000 calls/day).
+# Coordinates are resolved from the site table at startup; these env vars
+# are only used as a fallback when the DB has no site row yet.
+OPEN_METEO_LATITUDE = os.environ.get('OPEN_METEO_LATITUDE', '')
+OPEN_METEO_LONGITUDE = os.environ.get('OPEN_METEO_LONGITUDE', '')
+OPEN_METEO_PANEL_TILT = float(os.environ.get('OPEN_METEO_PANEL_TILT', '30'))
+OPEN_METEO_PANEL_AZIMUTH = float(os.environ.get('OPEN_METEO_PANEL_AZIMUTH', '0'))
+OPEN_METEO_FORECAST_DAYS = int(os.environ.get('OPEN_METEO_FORECAST_DAYS', '7'))
+OPEN_METEO_POLL_INTERVAL = int(os.environ.get('OPEN_METEO_POLL_INTERVAL', '3600'))  # 1 hour
+OPEN_METEO_MODEL = os.environ.get('OPEN_METEO_MODEL', 'best_match')
+OPEN_METEO_ENABLED = os.environ.get('OPEN_METEO_ENABLED', 'true').lower() == 'true'
+
+
+# ============================================================================
 # Site Configuration
 # ============================================================================
 
@@ -152,6 +169,23 @@ CONNECTOR_CONFIGS: Dict[str, Dict[str, Any]] = {
         'mappings_dir': MAPPINGS_DIR,
         'granularities': ['hourly', 'daily', 'monthly'],
         'enabled': bool(FUSIONSOLAR_USER and FUSIONSOLAR_SYSTEM_CODE) and FUSIONSOLAR_ENABLED,
+    },
+
+    # Open-Meteo Weather Forecast
+    'openmeteo_forecast': {
+        'type': 'openmeteo',
+        # lat/lon resolved from site table at startup; fallback to env vars
+        'latitude': float(OPEN_METEO_LATITUDE) if OPEN_METEO_LATITUDE else None,
+        'longitude': float(OPEN_METEO_LONGITUDE) if OPEN_METEO_LONGITUDE else None,
+        'panel_tilt': OPEN_METEO_PANEL_TILT,
+        'panel_azimuth': OPEN_METEO_PANEL_AZIMUTH,
+        'forecast_days': OPEN_METEO_FORECAST_DAYS,
+        'model': OPEN_METEO_MODEL,
+        'schedule_seconds': OPEN_METEO_POLL_INTERVAL,
+        'timeout': 30,
+        'max_retries': 3,
+        'mappings_dir': MAPPINGS_DIR,
+        'enabled': OPEN_METEO_ENABLED,
     },
 }
 
