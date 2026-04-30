@@ -41,7 +41,7 @@ def _upsert_datasources(session, entries: list[dict]) -> int:
                 alias=entry.get("alias"),
                 client=entry.get("client", ""),
                 description=entry.get("description"),
-                status=entry.get("status", "active"),
+                status="offline",  # Default all datasources to offline
                 timezone=entry.get("timezone", "UTC"),
                 metadata_=entry.get("metadata", {}),
             )
@@ -53,7 +53,7 @@ def _upsert_datasources(session, entries: list[dict]) -> int:
             ds.alias = entry.get("alias")
             ds.client = entry.get("client", "")
             ds.description = entry.get("description")
-            ds.status = entry.get("status", "active")
+            ds.status = "offline"  # Default all datasources to offline
             ds.timezone = entry.get("timezone", "UTC")
             ds.metadata_ = entry.get("metadata", {})
             logger.debug("Updated datasource '%s'", ext_id)
@@ -96,7 +96,7 @@ def _upsert_site(session, cfg: dict) -> Site:
 
     session.flush()
 
-    # Link datasources by external_id
+    # Link datasources by external_id and activate them
     ext_ids = cfg.get("data_sources", [])
     if ext_ids:
         datasources = (
@@ -106,12 +106,13 @@ def _upsert_site(session, cfg: dict) -> Site:
         )
         for ds in datasources:
             ds.site_id = site.id
+            ds.status = "online"  # Activate datasources linked to this site
 
         found_ids = {ds.external_id for ds in datasources}
         missing = set(ext_ids) - found_ids
         if missing:
             logger.warning("Datasources not found for site linking: %s", missing)
-        logger.info("Linked %d/%d datasources to site '%s'",
+        logger.info("Linked and activated %d/%d datasources for site '%s'",
                      len(found_ids), len(ext_ids), name)
 
     return site

@@ -1,11 +1,35 @@
 # CEI-InOE Site Configuration
 # Loaded on ingestor startup — upserted into the database.
 
+# site:
+#   name: "LK Dairy Farm"
+#   location:
+#     type: Point
+#     coordinates: [33.4126347, 35.0213149] 33.4126347 # [longitude, latitude]
+#   site_type: dairy_farm                # dairy_farm | factory | other
+#   owner:
+#     name: "Demo Organisation"
+#     type: organisation                 # person | organisation
+#     contact_email: owner@example.com
+#   administrator_email: admin@example.com
+#   data_sources:                        # external_ids of datasources belonging to this site
+#     - "68fbe8f50ad75e000a4d2158"
+#     - "68fbe8f5374f09000ac4bbe1"
+#     - "68fbe8f56fe6f1000adeffcc"
+#     - "68fbe8f576b75a000ae1d4dd"
+#     - "68fbe8f594138e000a6e9260"
+#     - "lelyna"
+#     - "6902200ea4feb40009ef39b8"
+#     - "68fbe8f5eb5462000945a324"
+#     - "68fbed1b76b75a000ae2401a"
+#     - "1236"
+#     - NE=146462613
+
 site:
-  name: "LK Dairy Farm"
+  name: "Blue Farm Dairy"
   location:
     type: Point
-    coordinates: [33.4126347, 35.0213149] 33.4126347 # [longitude, latitude]
+    coordinates: [33.5166347, 33.0213149] # [longitude, latitude]
   site_type: dairy_farm                # dairy_farm | factory | other
   owner:
     name: "Demo Organisation"
@@ -13,14 +37,5 @@ site:
     contact_email: owner@example.com
   administrator_email: admin@example.com
   data_sources:                        # external_ids of datasources belonging to this site
-    - "68fbe8f50ad75e000a4d2158"
-    - "68fbe8f5374f09000ac4bbe1"
-    - "68fbe8f56fe6f1000adeffcc"
-    - "68fbe8f576b75a000ae1d4dd"
-    - "68fbe8f594138e000a6e9260"
-    - "lelyna"
-    - "6902200ea4feb40009ef39b8"
-    - "68fbe8f5eb5462000945a324"
-    - "68fbed1b76b75a000ae2401a"
-    - "1236"
-    - NE=146462613
+    - "delaval"
+
