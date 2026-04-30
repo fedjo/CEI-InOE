@@ -45,7 +45,7 @@ validation_rules:
 conflict_resolution:
   strategy: update
   on_columns:
-    - source_batch_id
+    - datasource_id
     - ts
   update_columns:
     - pv_yield_kwh

@@ -90,6 +90,7 @@ class PydanticTransformer:
         mapped_data['source_type'] = source_context.get('source_type')
         mapped_data['source_api_endpoint'] = source_context.get('source_api_endpoint')
         mapped_data['source_device_id'] = str(source_context.get('datasource_id'))
+        mapped_data['datasource_id'] = source_context.get('datasource_id')
         mapped_data['ingested_at'] = datetime.now()
 
         # ── Step 3: Validate with Pydantic ────────────────────────────────

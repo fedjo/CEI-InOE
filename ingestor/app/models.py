@@ -39,6 +39,7 @@ class BaseRecord(BaseModel):
     source_type: Optional[SourceType] = SourceType.UNKNOWN
     source_api_endpoint: Optional[str] = None
     source_device_id: Optional[str] = None
+    datasource_id: Optional[int] = None
     ingested_at: Optional[datetime] = None
 
     model_config = ConfigDict(
