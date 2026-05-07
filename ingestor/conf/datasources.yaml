@@ -278,9 +278,9 @@ datasources:
   # --- Weather forecast (Open-Meteo) ---
   - external_id: "openmeteo_forecast"
     source_category: api
-    data_type: weathe_forecast
+    data_type: weather_forecast
     alias: Open-Meteo weather forecast
-    client: LK Dairy Farm
+    client: unknown
     status: online
     metadata:
       provider: open-meteo

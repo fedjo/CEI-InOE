@@ -7,7 +7,7 @@ fact_weather_forecast. No API key required for non-commercial use.
 Key differences from other HTTP connectors:
   - Open-Meteo returns parallel arrays (one per variable), not a list of
     objects. _transform_records() zips them into one dict per hour.
-  - forecast_run_at is taken from the API's generationtime_ms field.
+  - forecast_run_at is taken from current timestamp in UTC.
   - horizon_hours is computed per-row as (valid_at − forecast_run_at).
   - site_id and location (lat/lon) are loaded once from the site table.
 """
@@ -234,12 +234,12 @@ class OpenMeteoConnector(HttpConnector):
 
             with get_connection() as conn:
                 row = conn.execute(
-                    select(Site.__table__).limit(1)
+                    select(Site.__table__).where(Site.__table__.c.id == 1)
                 ).fetchone()
 
             if row is None:
                 logger.warning(
-                    f"[{self.connector_id}] No site found in DB — "
+                    f"[{self.connector_id}] Site id=1 not found in DB — "
                     "using config lat/lon if provided"
                 )
                 return

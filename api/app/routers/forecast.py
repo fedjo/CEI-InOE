@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.get("/latest", response_model=list[WeatherForecastRead])
 async def get_latest_forecast(
-    site_id: int | None = Query(None, description="Filter by site ID"),
+    site_id: int | None = Query(1, description="Filter by site ID"),
     db: Session = Depends(get_db),
 ):
     """
@@ -35,7 +35,7 @@ async def get_latest_forecast(
 async def get_forecast_history(
     valid_at_start: datetime = Query(..., description="Start of valid-time window (inclusive)"),
     valid_at_end: datetime = Query(..., description="End of valid-time window (inclusive)"),
-    site_id: int | None = Query(None, description="Filter by site ID"),
+    site_id: int | None = Query(1, description="Filter by site ID"),
     forecast_run_at: datetime | None = Query(
         None, description="Restrict to a specific forecast run timestamp"
     ),
