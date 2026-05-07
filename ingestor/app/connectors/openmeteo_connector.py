@@ -13,15 +13,12 @@ Key differences from other HTTP connectors:
 """
 
 import logging
-import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from models import SourceType
-from .base import BaseConnector, ConnectorStatus, InputEnvelope
-from .http_connector import HttpConnector, HttpConnectorConfig
+from .http_connector import HttpConnector
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +290,6 @@ class OpenMeteoConnector(HttpConnector):
             params=params,
             data_path="",      # whole response is one object; zipped in _transform_records
             mapping=f"{self.om_cfg.mappings_dir}/api_weather_forecast.yaml",
-            datasource_id=self._site_id,
             granularity="hourly",
             pagination=PaginationConfig(),
             enabled=True,
