@@ -188,10 +188,10 @@ datasources:
       device_token: c8d679bd-42ee-4c77-94e9-cfd74edcb546
 
   # --- Charalambides Embio Factory energy meters ---
-  - external_id: "691adf8f784b85000bb26f55"
+  - external_id: "63d256e02c254c0009f4f4ac"
     source_category: api
     data_type: energy
-    alias: SmartMeter 1
+    alias: Tyrokomeiou
     client: Charalambides Embio Factory
     status: offline
     metadata:
@@ -199,10 +199,10 @@ datasources:
       alias: "1"
       device_token: c7ef78fc-f9b3-47c8-b934-0659de04cfa1
 
-  - external_id: "691adf8f650a860009bd0a23"
+  - external_id: "63d3a275034c250009b0d526"
     source_category: api
     data_type: energy
-    alias: SmartMeter 2
+    alias: Panarismeno
     client: Charalambides Embio Factory
     status: offline
     metadata:
@@ -210,10 +210,10 @@ datasources:
       alias: "2"
       device_token: 6187b708-5af8-48f0-b85f-a4f32c22b311
 
-  - external_id: "691adf8f17835e000a96a913"
+  - external_id: "63d2576863f95b00090251cf"
     source_category: api
     data_type: energy
-    alias: SmartMeter 3
+    alias: Halloumi
     client: Charalambides Embio Factory
     status: offline
     metadata:
@@ -221,10 +221,10 @@ datasources:
       alias: "3"
       device_token: b41d4036-9cc4-40b5-9295-603f6145f1e0
 
-  - external_id: "691adf8fb38f670010e05dc6"
+  - external_id: "63d257e4d29ad6000aef2c8c"
     source_category: api
     data_type: energy
-    alias: SmartMeter 4
+    alias: AHU Halloumi
     client: Charalambides Embio Factory
     status: offline
     metadata:
@@ -232,10 +232,10 @@ datasources:
       alias: "4"
       device_token: 34370fef-79c8-4cc5-a7b0-f979b7063e43
 
-  - external_id: "691adf8fd67d2b000a121c82"
+  - external_id: "63d25457d29ad6000aeee00c"
     source_category: api
     data_type: energy
-    alias: SmartMeter 5
+    alias: Cooler
     client: Charalambides Embio Factory
     status: offline
     metadata:
@@ -243,7 +243,18 @@ datasources:
       alias: "5"
       device_token: 3026c383-adc3-4461-8ff4-c2363d95ae9e
 
-  # --- Weather sensor ---
+  - external_id: "63d259632c254c0009f52f40"
+    source_category: api
+    data_type: energy
+    alias: Vrasimo
+    client: Charalambides Embio Factory
+    status: offline
+    metadata:
+      name: eastron_sdm630_6860
+      alias: "5"
+      device_token: 3026c383-adc3-4461-8ff4-c2363d95ae9e
+
+ # --- Lefkos Weather station ---
   - external_id: "1236"
     source_category: api
     data_type: weather
@@ -255,6 +266,65 @@ datasources:
       isLocked: false
       external_id: "1236"
 
+  # --- Lefkos Weather sensors ---
+  - external_id: "1741"
+    source_category: api
+    data_type: weather
+    alias: O-CEI farm TRH 2
+    client: LK Dairy Farm
+    status: offline
+    metadata:
+      type: Indoors
+      isLocked: false
+      external_id: "1741"
+
+  - external_id: "1743"
+    source_category: api
+    data_type: weather
+    alias: O-CEI farm TRH 4
+    client: LK Dairy Farm
+    status: offline
+    metadata:
+      type: Indoors
+      isLocked: false
+      external_id: "1743"
+
+# ---- Blue Farm Weather station ----
+  - external_id: "1744"
+    source_category: api
+    data_type: weather
+    alias: O-CEI Farm weather 2
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      type: Outdoors
+      isLocked: false
+      external_id: "1744"
+
+# --- Blue Farm Weather sensors ---
+  - external_id: "1740"
+    source_category: api
+    data_type: weather
+    alias: O-CEI farm TRH 1
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      type: Indoors
+      isLocked: false
+      external_id: "1740"
+
+  - external_id: "1742"
+    source_category: api
+    data_type: weather
+    alias: O-CEI farm TRH 3
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      type: Indoors
+      isLocked: false
+      external_id: "1742"
+
+# ----- Charalambides Weather station ----
   - external_id: "1737"
     source_category: api
     data_type: weather
@@ -266,11 +336,13 @@ datasources:
       isLocked: false
       external_id: "1737"
 
+        
+# ---- Solar panels -----
   - external_id: "NE=146462613"
     source_category: api
     data_type: solar
-    alias: "Blue Farm PV"
-    client: LK Dairy Farm # This should be `Charalambides Embio Factory` but for the scope of development/testing we are associating it with the same site as the other LK Dairy Farm sources
+    alias: "Charalambides PV"
+    client: Charalambides Embio Factory
     status: offline
     metadata:
       station_code: "NE=146462613"  # from get_station_list()
