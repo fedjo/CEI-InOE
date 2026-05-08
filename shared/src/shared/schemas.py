@@ -318,6 +318,45 @@ class DataQualityCheckRead(BaseModel):
 
 
 # =============================================================================
+# Weather Forecast Schemas
+# =============================================================================
+
+class WeatherForecastRead(BaseModel):
+    """Schema for reading weather forecast records."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    forecast_run_at: datetime
+    valid_at: datetime
+    horizon_hours: int
+    site_id: int
+
+    shortwave_radiation_wm2: Optional[float] = None
+    direct_radiation_wm2: Optional[float] = None
+    direct_normal_irradiance_wm2: Optional[float] = None
+    diffuse_radiation_wm2: Optional[float] = None
+    global_tilted_irradiance_wm2: Optional[float] = None
+
+    cloud_cover_pct: Optional[float] = None
+    cloud_cover_low_pct: Optional[float] = None
+    cloud_cover_mid_pct: Optional[float] = None
+    cloud_cover_high_pct: Optional[float] = None
+
+    temperature_2m_c: Optional[float] = None
+    wind_speed_10m_ms: Optional[float] = None
+    wind_direction_10m_deg: Optional[float] = None
+    precipitation_mm: Optional[float] = None
+    weather_code: Optional[int] = None
+    sunshine_duration_s: Optional[float] = None
+    is_day: Optional[bool] = None
+    model_id: Optional[str] = None
+
+    source_batch_id: Optional[UUID] = None
+    source_device_id: Optional[str] = None
+    ingested_at: Optional[datetime] = None
+
+
+# =============================================================================
 # Common Response Schemas
 # =============================================================================
 

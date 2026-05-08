@@ -340,6 +340,77 @@ class SolarRecord(BaseRecord):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Weather Forecast Record (Open-Meteo)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class WeatherForecastRecord(BaseRecord):
+    """
+    Pydantic model for fact_weather_forecast table.
+
+    Produced by the OpenMeteoConnector after zipping the parallel arrays
+    returned by the Open-Meteo /v1/forecast endpoint into per-hour dicts,
+    and enriching each row with forecast_run_at, horizon_hours, and site_id.
+    """
+    # Temporal keys (required)
+    valid_at: datetime
+    forecast_run_at: datetime
+    horizon_hours: int
+    site_id: int
+
+    # Solar radiation
+    shortwave_radiation_wm2: Optional[float] = None
+    direct_radiation_wm2: Optional[float] = None
+    direct_normal_irradiance_wm2: Optional[float] = None
+    diffuse_radiation_wm2: Optional[float] = None
+    global_tilted_irradiance_wm2: Optional[float] = None
+
+    # Cloud cover
+    cloud_cover_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    cloud_cover_low_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    cloud_cover_mid_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    cloud_cover_high_pct: Optional[float] = Field(default=None, ge=0, le=100)
+
+    # Supporting weather
+    temperature_2m_c: Optional[float] = Field(default=None, ge=-80, le=60)
+    wind_speed_10m_ms: Optional[float] = Field(default=None, ge=0, le=100)
+    wind_direction_10m_deg: Optional[float] = Field(default=None, ge=0, le=360)
+    precipitation_mm: Optional[float] = Field(default=None, ge=0)
+    weather_code: Optional[int] = None
+
+    # Derived
+    sunshine_duration_s: Optional[float] = Field(default=None, ge=0, le=3600)
+    is_day: Optional[bool] = None
+
+    # Model metadata
+    model_id: str = "best_match"
+
+    @field_validator('valid_at', 'forecast_run_at', mode='before')
+    @classmethod
+    def parse_dt(cls, v):
+        return parse_datetime_with_ampm(v) if isinstance(v, str) else v
+
+    @field_validator(
+        'shortwave_radiation_wm2', 'direct_radiation_wm2',
+        'direct_normal_irradiance_wm2', 'diffuse_radiation_wm2',
+        'global_tilted_irradiance_wm2', 'cloud_cover_pct',
+        'cloud_cover_low_pct', 'cloud_cover_mid_pct', 'cloud_cover_high_pct',
+        'temperature_2m_c', 'wind_speed_10m_ms', 'wind_direction_10m_deg',
+        'precipitation_mm', 'sunshine_duration_s',
+        mode='before'
+    )
+    @classmethod
+    def parse_floats(cls, v):
+        return parse_european_float(v)
+
+    @field_validator('is_day', mode='before')
+    @classmethod
+    def parse_is_day(cls, v):
+        if v is None:
+            return None
+        return bool(int(v)) if isinstance(v, (int, float, str)) else bool(v)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Model Registry
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -351,6 +422,7 @@ MODEL_REGISTRY: Dict[str, type[BaseRecord]] = {
     'solar_hourly': SolarRecord,
     'solar_daily': SolarRecord,
     'solar_monthly': SolarRecord,
+    'weather_forecast': WeatherForecastRecord,
 }
 
 

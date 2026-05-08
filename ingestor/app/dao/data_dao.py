@@ -5,8 +5,6 @@ Handles final data table inserts with conflict resolution.
 """
 
 import logging
-from typing import Any
-
 from sqlalchemy import insert, Table
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -18,6 +16,7 @@ from shared import (
     FactSolarHourly,
     FactSolarDaily,
     FactSolarMonthly,
+    FactWeatherForecast
 )
 from . import BaseCoreDAO
 
@@ -36,6 +35,7 @@ class DataDAO(BaseCoreDAO):
         'fact_solar_hourly': FactSolarHourly,
         'fact_solar_daily': FactSolarDaily,
         'fact_solar_monthly': FactSolarMonthly,
+        'fact_weather_forecast': FactWeatherForecast,
     }
 
     def __init__(self, connection, conflict_config: dict = None):
@@ -51,6 +51,14 @@ class DataDAO(BaseCoreDAO):
             raise ValueError(f"No final table configured for dataset: {dataset}")
         return self.FINAL_MODELS[dataset].__table__
 
+    def _filter_record_to_table_columns(self, table: Table, record: dict) -> dict:
+        """Keep only keys that map to real target table columns."""
+        valid_columns = {col.name for col in table.columns}
+        return {
+            k: v for k, v in record.items()
+            if not k.startswith('_') and k in valid_columns
+        }
+
     def insert_record(self, dataset: str, record: dict) -> bool:
         """
         Insert record with conflict resolution using PostgreSQL upsert.
@@ -59,10 +67,8 @@ class DataDAO(BaseCoreDAO):
             True if inserted/updated, False if skipped
         """
         table = self.get_table(dataset)
+        record = self._filter_record_to_table_columns(table, record)
 
-        # Remove internal fields
-        record = {k: v for k, v in record.items() if not k.startswith('_')}
-        
         # Build upsert statement
         stmt = pg_insert(table).values(**record)
         
@@ -105,13 +111,11 @@ class DataDAO(BaseCoreDAO):
             return 0
         
         table = self.get_table(dataset)
-        
-        # Clean records
         clean_records = [
-            {k: v for k, v in rec.items() if not k.startswith('_')}
+            self._filter_record_to_table_columns(table, rec)
             for rec in records
         ]
-        
+
         if not self.on_columns:
             # Simple bulk insert
             stmt = insert(table).values(clean_records)
@@ -136,12 +140,11 @@ class DataDAO(BaseCoreDAO):
             return 0
         
         table = self.get_table(dataset)
-        
         clean_records = [
-            {k: v for k, v in rec.items() if not k.startswith('_')}
+            self._filter_record_to_table_columns(table, rec)
             for rec in records
         ]
-        
+
         stmt = insert(table).values(clean_records)
         result = self.execute(stmt)
         return result.rowcount

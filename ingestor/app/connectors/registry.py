@@ -10,6 +10,7 @@ from .http_connector import HttpConnector
 from .airbeld_connector import AirbeldConnector
 from .tago_connector import TagoConnector
 from .fusionsolar_connector import FusionSolarConnector
+from .openmeteo_connector import OpenMeteoConnector
 
 
 # Registry of connector types
@@ -19,6 +20,7 @@ CONNECTOR_TYPES: Dict[str, Type[BaseConnector]] = {
     'airbeld': AirbeldConnector,
     'tago': TagoConnector,
     'fusionsolar': FusionSolarConnector,
+    'openmeteo': OpenMeteoConnector,
 }
 
 
