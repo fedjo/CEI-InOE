@@ -2,7 +2,7 @@
 
 > **Data ingestion and analytics edge platform** — part of the [O-CEI](https://o-cei.eu/) project.
 
-CEI-InOE collects energy consumption, environmental (weather), solar PV generation, and dairy production data from multiple external sources, runs ETL pipelines to validate and load data into a PostgreSQL data warehouse, and exposes the results through a REST API.
+CEI-InOE collects energy consumption, environmental sensor data, weather forecasts, solar PV generation, and dairy production data from multiple external sources, runs ETL pipelines to validate and load data into a PostgreSQL data warehouse, and exposes the results through a REST API.
 
 ---
 
@@ -10,7 +10,7 @@ CEI-InOE collects energy consumption, environmental (weather), solar PV generati
 
 | Service | Description |
 |---------|-------------|
-| **`ingestor/`** | Pulls from external APIs (Tago.io, Airbeld, FusionSolar) and watches `/data/incoming` for CSV/XLSX files; runs concurrent ETL pipelines via a thread worker pool |
+| **`ingestor/`** | Pulls from external APIs (Tago.io, Airbeld, FusionSolar, Open-Meteo) and watches `/data/incoming` for CSV/XLSX files, including Delaval dairy exports; runs concurrent ETL pipelines via a thread worker pool |
 | **`api/`** | Read-only FastAPI service; all endpoints protected with `X-API-Key` |
 | **`shared/`** | Editable Python package with SQLAlchemy models and Pydantic v2 schemas shared by both services |
 | **`alembic/`** | Database migrations |
@@ -93,6 +93,8 @@ Authentication: `X-API-Key: <API_KEY>` header on all `/api/v1/*` routes.
 | `GET /api/v1/environmental/hourly` | Environmental sensor readings |
 | `GET /api/v1/environmental/latest` | Latest environmental reading |
 | `GET /api/v1/environmental/stats` | Environmental statistics |
+| `GET /api/v1/forecast/latest` | Latest forecast run as hourly forecast slots |
+| `GET /api/v1/forecast/history` | Forecast records filtered by valid-time window |
 | `GET /api/v1/dairy/daily` | Daily dairy production records |
 | `GET /api/v1/dairy/latest` | Latest dairy production record |
 | `GET /api/v1/dairy/stats` | Dairy statistics |
@@ -121,6 +123,7 @@ Copy `.env.example` to `.env` and fill in values. Key variables:
 | `FUSIONSOLAR_ENABLED` | Ingestor | Enable/disable FusionSolar connector |
 | `FUSIONSOLAR_USER` | Ingestor | FusionSolar username |
 | `FUSIONSOLAR_SYSTEM_CODE` | Ingestor | FusionSolar system code |
+| `OPEN_METEO_ENABLED` | Ingestor | Enable/disable Open-Meteo weather forecast connector |
 | `NUM_WORKERS` | Ingestor | Worker thread count (default: `2`) |
 | `CORS_ORIGINS` | API | Comma-separated allowed CORS origins |
 
