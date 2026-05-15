@@ -6,9 +6,9 @@ from contextlib import asynccontextmanager
 import logging
 
 from app.config import settings, get_cors_origins
-from app.db.connection import get_engine, close_engine
-from app.routers import health, energy, environmental, dairy, devices
 from app.auth import verify_api_key
+from shared.database import get_engine, close_engine
+from app.routers import health, energy, environmental, dairy, datasources, batches, forecast
 
 # Configure logging
 logging.basicConfig(
@@ -47,9 +47,10 @@ and dairy production data collected by the CEI-InOE platform.
 ## Data Types
 
 - **Environmental**: Temperature, humidity, air quality, noise levels
-- **Energy**: Hourly and daily energy consumption per device
+- **Energy**: Hourly and daily energy consumption per datasource
 - **Dairy**: Daily milk production and related metrics
-- **Devices**: Device metadata and configuration
+- **Datasources**: Data source metadata (devices, files, APIs)
+- **Batches**: Ingestion batch tracking
 
 ## Common Patterns
 
@@ -78,25 +79,42 @@ app.include_router(
     energy.router, 
     prefix="/api/v1/energy", 
     tags=["Energy"],
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(verify_api_key)],
 )
+
 app.include_router(
     environmental.router, 
     prefix="/api/v1/environmental", 
     tags=["Environmental"],
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(verify_api_key)],
 )
+
 app.include_router(
     dairy.router, 
     prefix="/api/v1/dairy", 
     tags=["Dairy"],
-    dependencies=[Depends(verify_api_key)]
+    dependencies=[Depends(verify_api_key)],
 )
+
 app.include_router(
-    devices.router, 
-    prefix="/api/v1/devices", 
-    tags=["Devices"],
-    dependencies=[Depends(verify_api_key)]
+    datasources.router, 
+    prefix="/api/v1/datasources", 
+    tags=["Datasources"],
+    dependencies=[Depends(verify_api_key)],
+)
+
+app.include_router(
+    batches.router, 
+    prefix="/api/v1/batches", 
+    tags=["Batches"],
+    dependencies=[Depends(verify_api_key)],
+)
+
+app.include_router(
+    forecast.router,
+    prefix="/api/v1/forecast",
+    tags=["Forecast"],
+    dependencies=[Depends(verify_api_key)],
 )
 
 
@@ -107,5 +125,5 @@ async def root():
         "name": settings.api_title,
         "version": settings.api_version,
         "docs": "/docs",
-        "openapi": "/openapi.json"
+        "health": "/health",
     }

@@ -1,0 +1,45 @@
+# Mapping for Tago.io API energy hourly consumption data
+# Used by TagoConnector for ingesting hourly_consumption variable
+
+dataset: energy_hourly
+granularity: hourly
+
+# Column mapping (API field → internal field)
+columns:
+  ts: ts
+  energy_kwh: energy_kwh
+
+# Type coercions
+coercions:
+  ts: datetime
+  energy_kwh: float
+
+# Primary key for deduplication
+primary_key:
+  - device_id
+  - ts
+
+# Validation Rules
+validation_rules:
+  schema:
+    required:
+      - ts
+      - energy_kwh
+  
+  constraints:
+    energy_kwh:
+      min: 0
+      max: 10000  # Reasonable max for hourly consumption
+
+# Conflict Resolution Strategy
+conflict_resolution:
+  strategy: update
+  on_columns:
+    - datasource_id
+    - ts
+  update_columns:
+    - energy_kwh
+
+# Target Configuration
+target_table: fact_energy_hourly
+staging_table: staging_energy_hourly

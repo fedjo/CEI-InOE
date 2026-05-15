@@ -1,42 +1,52 @@
 """
-DAO Factory for centralized DAO creation.
+DAO Factory for SQLAlchemy Core DAOs.
+
+Provides centralized creation and caching of DAO instances.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
-from .device_dao import DeviceDAO
-from .ingest_file_dao import IngestFileDAO
+from sqlalchemy import Connection
+
+from .datasource_dao import DatasourceDAO
+from .batch_dao import IngestBatchDAO
 from .staging_dao import StagingDAO
-from .pipeline_dao import PipelineDAO
-from .cursor_dao import CursorDAO, EnvironmentalMetricsDAO
 from .data_dao import DataDAO
+from .pipeline_dao import PipelineDAO
+from .cursor_dao import CursorDAO
 
 
 class DAOFactory:
     """Factory for creating DAO instances with shared connection."""
 
-    def __init__(self, connection):
+    def __init__(self, connection: Connection):
+        """
+        Initialize factory with SQLAlchemy Core connection.
+
+        Args:
+            connection: SQLAlchemy Core connection
+        """
         self._connection = connection
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
 
     @property
-    def connection(self):
+    def connection(self) -> Connection:
         """Get the database connection."""
         return self._connection
 
     @property
-    def device(self) -> DeviceDAO:
-        """Get DeviceDAO instance."""
-        if 'device' not in self._cache:
-            self._cache['device'] = DeviceDAO(self._connection)
-        return self._cache['device']
+    def datasource(self) -> DatasourceDAO:
+        """Get DatasourceDAO instance."""
+        if 'datasource' not in self._cache:
+            self._cache['datasource'] = DatasourceDAO(self._connection)
+        return self._cache['datasource']
 
     @property
-    def ingest_file(self) -> IngestFileDAO:
-        """Get IngestFileDAO instance."""
-        if 'ingest_file' not in self._cache:
-            self._cache['ingest_file'] = IngestFileDAO(self._connection)
-        return self._cache['ingest_file']
+    def ingest_batch(self) -> IngestBatchDAO:
+        """Get IngestBatchDAO instance."""
+        if 'ingest_batch' not in self._cache:
+            self._cache['ingest_batch'] = IngestBatchDAO(self._connection)
+        return self._cache['ingest_batch']
 
     @property
     def pipeline(self) -> PipelineDAO:
@@ -52,13 +62,6 @@ class DAOFactory:
             self._cache['cursor'] = CursorDAO(self._connection)
         return self._cache['cursor']
 
-    @property
-    def environmental_metrics(self) -> EnvironmentalMetricsDAO:
-        """Get EnvironmentalMetricsDAO instance."""
-        if 'environmental_metrics' not in self._cache:
-            self._cache['environmental_metrics'] = EnvironmentalMetricsDAO(self._connection)
-        return self._cache['environmental_metrics']
-
     def staging(self, dataset: str) -> StagingDAO:
         """Get StagingDAO instance for dataset."""
         key = f'staging_{dataset}'
@@ -66,7 +69,7 @@ class DAOFactory:
             self._cache[key] = StagingDAO(self._connection, dataset)
         return self._cache[key]
 
-    def data(self, conflict_config: Optional[Dict] = None) -> DataDAO:
+    def data(self, conflict_config: Optional[dict] = None) -> DataDAO:
         """Get DataDAO instance with conflict config."""
         # Don't cache since conflict_config may vary
         return DataDAO(self._connection, conflict_config)
@@ -78,3 +81,15 @@ class DAOFactory:
     def rollback(self):
         """Rollback transaction."""
         self._connection.rollback()
+
+
+# Re-export for convenience
+__all__ = [
+    'DAOFactory',
+    'DatasourceDAO',
+    'IngestBatchDAO',
+    'StagingDAO',
+    'DataDAO',
+    'PipelineDAO',
+    'CursorDAO',
+]

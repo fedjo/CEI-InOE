@@ -1,0 +1,87 @@
+# Mapping for Open-Meteo hourly weather forecast
+# Dataset produced by OpenMeteoConnector._transform_records():
+#   - parallel arrays are zipped into one dict per hour
+#   - forecast_run_at, horizon_hours and site_id are injected per-row
+
+dataset: weather_forecast
+
+columns:
+  valid_at: valid_at
+  forecast_run_at: forecast_run_at
+  horizon_hours: horizon_hours
+  site_id: site_id
+  shortwave_radiation_wm2: shortwave_radiation_wm2
+  direct_radiation_wm2: direct_radiation_wm2
+  direct_normal_irradiance_wm2: direct_normal_irradiance_wm2
+  diffuse_radiation_wm2: diffuse_radiation_wm2
+  global_tilted_irradiance_wm2: global_tilted_irradiance_wm2
+  cloud_cover_pct: cloud_cover_pct
+  cloud_cover_low_pct: cloud_cover_low_pct
+  cloud_cover_mid_pct: cloud_cover_mid_pct
+  cloud_cover_high_pct: cloud_cover_high_pct
+  temperature_2m_c: temperature_2m_c
+  wind_speed_10m_ms: wind_speed_10m_ms
+  wind_direction_10m_deg: wind_direction_10m_deg
+  precipitation_mm: precipitation_mm
+  weather_code: weather_code
+  sunshine_duration_s: sunshine_duration_s
+  is_day: is_day
+  model_id: model_id
+
+coercions:
+  valid_at: datetime
+  forecast_run_at: datetime
+  horizon_hours: int
+  site_id: int
+  shortwave_radiation_wm2: float
+  direct_radiation_wm2: float
+  direct_normal_irradiance_wm2: float
+  diffuse_radiation_wm2: float
+  global_tilted_irradiance_wm2: float
+  cloud_cover_pct: float
+  cloud_cover_low_pct: float
+  cloud_cover_mid_pct: float
+  cloud_cover_high_pct: float
+  temperature_2m_c: float
+  wind_speed_10m_ms: float
+  wind_direction_10m_deg: float
+  precipitation_mm: float
+  weather_code: int
+  sunshine_duration_s: float
+
+validation_rules:
+  schema:
+    required:
+      - valid_at
+      - forecast_run_at
+      - horizon_hours
+      - site_id
+
+conflict_resolution:
+  # Upsert: if the same (run, valid_at, site) arrives again, refresh values
+  strategy: fail
+  on_columns:
+    - forecast_run_at
+    - valid_at
+    - site_id
+  update_columns:
+    - shortwave_radiation_wm2
+    - direct_radiation_wm2
+    - direct_normal_irradiance_wm2
+    - diffuse_radiation_wm2
+    - global_tilted_irradiance_wm2
+    - cloud_cover_pct
+    - cloud_cover_low_pct
+    - cloud_cover_mid_pct
+    - cloud_cover_high_pct
+    - temperature_2m_c
+    - wind_speed_10m_ms
+    - wind_direction_10m_deg
+    - precipitation_mm
+    - weather_code
+    - sunshine_duration_s
+    - is_day
+    - model_id
+
+target_table: fact_weather_forecast
+staging_table: staging_weather_forecast

@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
+from models import SourceType
+
 from .http_connector import HttpConnector, EndpointConfig, AuthConfig, HttpConnectorConfig
 
 logger = logging.getLogger(__name__)
@@ -53,10 +55,10 @@ class AirbeldConnector(HttpConnector):
         'pm2p5': 'pm2p5',
     }
     
-    def __init__(self, connector_id: str, config: Dict[str, Any], db_connection=None):
+    def __init__(self, connector_id: str, config: Dict[str, Any]):
         # Parse Airbeld-specific config
         self.airbeld_cfg = AirbeldConnectorConfig(**config)
-        
+
         # Build base HttpConnector config
         http_config = {
             'type': 'http',
@@ -74,37 +76,38 @@ class AirbeldConnector(HttpConnector):
             'schedule_seconds': self.airbeld_cfg.schedule_seconds,
             'enabled': self.airbeld_cfg.enabled,
         }
-        
-        super().__init__(connector_id, http_config, db_connection)
-        self._devices: List[Dict[str, Any]] = []
+
+        super().__init__(connector_id, http_config)
+        self._datasources: List[Dict[str, Any]] = []
     
     def start(self) -> None:
         """Initialize and load devices from DB."""
         super().start()
-        self._load_devices()
-        logger.info(f"[{self.connector_id}] Loaded {len(self._devices)} weather devices")
-    
+        self._load_datasources()
+        logger.info(f"[{self.connector_id}] Loaded {len(self._datasources)} weather devices")
+
     def discover(self) -> List[str]:
         """Return device IDs (not endpoint IDs)."""
-        return [d['device_id'] for d in self._devices if d.get('external_id')]
-    
-    def fetch(self, item_id: str) -> Optional[Any]:
+        return [d['external_id'] for d in self._datasources if d.get('external_id')]
+
+    def fetch(self, ext_id: str) -> Optional[Any]:
         """Fetch environmental data for a device."""
-        device = self._get_device(item_id)
-        if not device:
-            logger.error(f"[{self.connector_id}] Unknown device: {item_id}")
+        datasource = self._get_datasource(ext_id)
+        if not datasource:
+            logger.error(f"[{self.connector_id}] Unknown datasource: {ext_id}")
             return None
-        
-        external_id = device.get('external_id')
+
+        external_id = datasource.get('external_id')
+        ds_id = datasource.get('id', 3) # Fallback to 3 if no ID, since Airbeld API doesn't have separate endpoints per device
         if not external_id:
-            logger.error(f"[{self.connector_id}] No external_id for device {item_id}")
+            logger.error(f"[{self.connector_id}] No external_id for datasource {ext_id}")
             return None
-        
-        # Create dynamic endpoint for this device
-        start_date, end_date = self._get_date_range(item_id)
-        
+
+        # Create dynamic endpoint for this datasource
+        start_date, end_date = self._get_date_range(ds_id, external_id)
+
         endpoint = EndpointConfig(
-            id=item_id,
+            id=ext_id,
             path=f"/devices/{external_id}/readings_by_date/",
             method="GET",
             params={
@@ -114,31 +117,31 @@ class AirbeldConnector(HttpConnector):
             },
             data_path='sensors',
             mapping=f"{self.airbeld_cfg.mappings_dir}/api_environmental_metrics.yaml",
-            device_id=item_id,
+            datasource_id=ds_id,
             granularity='hourly',
             use_time_cursor=True,
             timestamp_field='timestamp',
             enabled=True,
         )
-        
+
         # Temporarily add endpoint for base class fetch
         self.cfg.endpoints = [endpoint]
-        
+
         # Store date range for metadata
         self._current_start_date = start_date
         self._current_end_date = end_date
         self._current_external_id = external_id
-        
-        return super().fetch(item_id)
+
+        return super().fetch(ext_id)
 
     # -------------------------------------------------------------------------
     # Override: OAuth Authentication
     # -------------------------------------------------------------------------
-    
+
     def _refresh_oauth_token(self) -> None:
         """Refresh token using Airbeld email/password auth."""
         logger.info(f"[{self.connector_id}] Authenticating with Airbeld API...")
-        
+
         response = self._session.post(  # type: ignore
             f"{self.airbeld_cfg.base_url}/auth/token/",
             json={
@@ -148,70 +151,70 @@ class AirbeldConnector(HttpConnector):
             timeout=self.airbeld_cfg.timeout
         )
         response.raise_for_status()
-        
+
         data = response.json()
         self._access_token = data.get('accessToken') or data.get('access_token')
         self._token_expires = datetime.now() + timedelta(hours=1)
-        
+
         logger.info(f"[{self.connector_id}] Authentication successful")
-    
+
     # -------------------------------------------------------------------------
     # Override: Data Transformation
     # -------------------------------------------------------------------------
-    
+
     def _extract_records(self, data: Any, endpoint: EndpointConfig) -> List[Dict]:
         """Extract sensors dict from response."""
         if isinstance(data, dict) and 'sensors' in data:
             return [data['sensors']]  # Return as single item for transformation
         return [data] if isinstance(data, dict) else []
-    
+
     def _transform_records(
-        self, 
+        self,
         records: List[Dict], 
         endpoint: EndpointConfig
     ) -> List[Dict]:
         """
         Transform column-oriented sensor data to row-oriented records.
-        
+
         Input:
             {'atm_pressure': {'values': [{'timestamp': '...', 'value': 99.5}, ...]}, ...}
-        
+
         Output:
             [{'timestamp': '...', 'atm_pressure': 99.5, 'temperature': 22.5, ...}, ...]
         """
         if not records:
             return []
-        
+
         sensors = records[0]  # We passed sensors dict as single record
-        
+
         # Collect all values by timestamp
         by_timestamp: Dict[str, Dict[str, Any]] = {}
-        
+
         for sensor_name, sensor_data in sensors.items():
             db_column = self.SENSOR_MAP.get(sensor_name)
             if not db_column:
                 logger.debug(f"[{self.connector_id}] Unknown sensor: {sensor_name}")
                 continue
-            
+
             values = sensor_data.get('values', [])
             for item in values:
                 ts = item.get('timestamp')
                 value = item.get('value')
-                
+
                 if ts and value is not None:
                     if ts not in by_timestamp:
                         by_timestamp[ts] = {'timestamp': ts}
                     by_timestamp[ts][db_column] = value
-        
+
         # Convert to list, sorted by timestamp
         result = list(by_timestamp.values())
         result.sort(key=lambda r: r['timestamp'])
-        
+
         return result
-    
+
     def _build_metadata(
-        self, 
-        item_id: str, 
+        self,
+        item_id: str,
         records: List[Dict],
         endpoint: EndpointConfig
     ) -> Dict[str, Any]:
@@ -224,7 +227,7 @@ class AirbeldConnector(HttpConnector):
             'end_date': getattr(self, '_current_end_date', datetime.now()).isoformat(),
             'record_count': len(records),
             'cursor': self._cursors.get(item_id),
-            'source_type': 'api',
+            'source_type': SourceType.JSON.value,
             'sha256': self._file_sha256(self._compute_input_id(item_id, records)),
         }
 
@@ -233,81 +236,93 @@ class AirbeldConnector(HttpConnector):
     # -------------------------------------------------------------------------
     # Device Management
     # -------------------------------------------------------------------------
-    
-    def _load_devices(self) -> None:
-        """Load weather devices from database using DAO."""
-        if not self._db_connection:
-            logger.warning(f"[{self.connector_id}] No DB connection, using empty device list")
-            self._devices = []
-            return
-        
+
+    def _load_datasources(self) -> None:
+        """Load weather datasources from database using DAO."""
         try:
-            from dao import DeviceDAO
-            device_dao = DeviceDAO(self._db_connection)
-            self._devices = device_dao.get_weather_devices()
-            
+            from shared import get_connection
+            from dao import DatasourceDAO
+
+            with get_connection() as conn:
+                datasource_dao = DatasourceDAO(conn)
+                datasources = datasource_dao.get_weather_datasources()
+                # Map to device-like format for backward compatibility
+                self._datasources = [
+                    {
+                        'id': ds['id'],
+                        'alias': ds.get('alias'),
+                        'client': ds.get('client'),
+                        'external_id': ds.get('metadata_', {}).get('external_id') if ds.get('metadata_') else ds['external_id'],
+                        'metadata': ds.get('metadata_', {}),
+                    }
+                    for ds in datasources
+                ]
+
         except Exception as e:
             logger.error(f"[{self.connector_id}] Failed to load devices: {e}")
-            self._devices = []
+            self._datasources = []
     
-    def _get_device(self, device_id: str) -> Optional[Dict[str, Any]]:
-        """Find device by ID."""
-        for d in self._devices:
-            if d['device_id'] == device_id:
+    def _get_datasource(self, external_id: str) -> Optional[Dict[str, Any]]:
+        """Find device by External ID."""
+        for d in self._datasources:
+            if d['external_id'] == external_id:
                 return d
         return None
-    
+
     # -------------------------------------------------------------------------
     # Helpers / Date Range / Cursor
     # -------------------------------------------------------------------------
-    
-    def _get_date_range(self, device_id: str) -> tuple[datetime, datetime]:
+
+    def _get_date_range(self, ds_id: int, external_id: str) -> tuple[datetime, datetime]:
         """Get start and end dates for fetch."""
         end_date = datetime.now()
 
         # Try to get last cursor from database
-        start_date = self._get_cursor_from_db(device_id)
-        
+        endpoint_id = external_id
+        start_date = self._get_cursor_from_db(ds_id, endpoint_id)
+
         if not start_date:
             # Fallback: query max timestamp from data table
-            start_date = self._get_max_timestamp_from_data(device_id)
-        
+            start_date = self._get_max_timestamp_from_data(ds_id)
+
         if not start_date:
             # Default: use lookback
             start_date = end_date - timedelta(days=self.airbeld_cfg.lookback_days)
+            logger.info(f"[{self.connector_id}] No cursor for {ds_id}, using {self.airbeld_cfg.lookback_days} day lookback")
         else:
             # Start from last fetch + 1 hour to avoid duplicates
             start_date = start_date + timedelta(hours=1)
-        
-        return start_date, end_date
-    
-    def _get_cursor_from_db(self, device_id: str) -> Optional[datetime]:
-        """Get last fetch timestamp from cursor table using DAO."""
-        if not self._db_connection:
-            return None
+            logger.debug(f"[{self.connector_id}] Resuming from cursor: {start_date}")
 
+        return start_date, end_date
+
+    def _get_cursor_from_db(self, ds_id: int, endpoint_id: str) -> Optional[datetime]:
+        """Get last fetch timestamp from cursor table using DAO."""
         try:
+            from shared import get_connection
             from dao import CursorDAO
-            cursor_dao = CursorDAO(self._db_connection)
-            return cursor_dao.get_cursor(
-                connector_id=self.connector_id,
-                endpoint_id=device_id,
-                device_id=device_id
-            )
-            
+
+            with get_connection() as conn:
+                cursor_dao = CursorDAO(conn)
+                return cursor_dao.get_cursor(
+                    connector_id=self.connector_id,
+                    endpoint_id=endpoint_id,
+                    datasource_id=ds_id
+                )
+
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Cursor table query failed: {e}")
             return None
-    
-    def _get_max_timestamp_from_data(self, device_id: str) -> Optional[datetime]:
+
+    def _get_max_timestamp_from_data(self, ds_id: int) -> Optional[datetime]:
         """Fallback: get max timestamp from environmental_metrics table using DAO."""
-        if not self._db_connection:
-            return None
-        
         try:
-            from dao.cursor_dao import EnvironmentalMetricsDAO
-            metrics_dao = EnvironmentalMetricsDAO(self._db_connection)
-            return metrics_dao.get_max_timestamp(device_id)
+            from shared import get_connection
+            from dao import CursorDAO
+
+            with get_connection() as conn:
+                cursor_dao = CursorDAO(conn)
+                return cursor_dao.get_max_environmental_timestamp(ds_id)
             
         except Exception as e:
             logger.debug(f"[{self.connector_id}] Data table query failed: {e}")

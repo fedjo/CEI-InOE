@@ -1,25 +1,23 @@
 """Environmental metrics endpoints."""
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Depends
 from datetime import date
+from sqlalchemy.orm import Session
 
+from app.db.session import get_db
 from app.db.queries import environmental as env_queries
-from app.schemas.common import PaginatedResponse
-from app.schemas.environmental import (
-    EnvironmentalMetricRecord, 
-    EnvironmentalLatestRecord,
-    EnvironmentalStatsResponse
-)
 from app.config import settings
+
+from shared import EnvironmentalMetricsRead, PaginatedResponse
 
 router = APIRouter()
 
 
-@router.get("/hourly", response_model=PaginatedResponse[EnvironmentalMetricRecord])
+@router.get("/hourly", response_model=PaginatedResponse)
 async def get_environmental_metrics(
     start_date: date = Query(..., description="Start date (inclusive)"),
     end_date: date = Query(..., description="End date (inclusive)"),
-    source_device_id: str = Query(..., description="Filter by device ID"),
+    source_device_id: str | None = Query(None, description="Filter by source device ID"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(
         settings.default_page_size, 
@@ -27,11 +25,12 @@ async def get_environmental_metrics(
         le=settings.max_page_size,
         description="Records per page"
     ),
+    db: Session = Depends(get_db),
 ):
     """
     Get environmental metrics records.
     
-    Returns paginated environmental data from environmental_metrics table.
+    Returns paginated environmental data.
     """
     if start_date > end_date:
         raise HTTPException(
@@ -39,7 +38,8 @@ async def get_environmental_metrics(
             detail="start_date must be before or equal to end_date"
         )
     
-    rows, total = env_queries.get_metrics(
+    records, total = env_queries.get_metrics(
+        db=db,
         start_date=start_date,
         end_date=end_date,
         source_device_id=source_device_id,
@@ -47,33 +47,33 @@ async def get_environmental_metrics(
         page_size=page_size
     )
     
-    return PaginatedResponse.create(
-        data=[EnvironmentalMetricRecord(**row) for row in rows],
+    return PaginatedResponse(
+        data=[EnvironmentalMetricsRead.model_validate(r) for r in records],
         total=total,
         page=page,
-        page_size=page_size
+        page_size=page_size,
+        total_pages=(total + page_size - 1) // page_size
     )
 
 
-@router.get("/latest", response_model=EnvironmentalLatestRecord)
-async def get_latest_environmental():
+@router.get("/latest", response_model=EnvironmentalMetricsRead)
+async def get_latest_environmental(db: Session = Depends(get_db)):
     """
     Get the most recent environmental reading.
     """
-    result = env_queries.get_latest()
+    record = env_queries.get_latest(db)
     
-    if not result:
+    if not record:
         raise HTTPException(status_code=404, detail="No environmental data found")
     
-    return EnvironmentalLatestRecord(**result)
+    return EnvironmentalMetricsRead.model_validate(record)
 
 
-@router.get("/stats", response_model=EnvironmentalStatsResponse)
-async def get_environmental_stats():
+@router.get("/stats")
+async def get_environmental_stats(db: Session = Depends(get_db)):
     """
     Get environmental data statistics.
     
-    Returns counts, date ranges, and averages for environmental data.
+    Returns counts, date ranges, and averages.
     """
-    result = env_queries.get_stats()
-    return EnvironmentalStatsResponse(**result)
+    return env_queries.get_stats(db)

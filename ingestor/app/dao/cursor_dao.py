@@ -1,104 +1,177 @@
 """
-API fetch cursor data access.
+Cursor DAO using SQLAlchemy Core.
+
+Tracks API fetch cursors for incremental data loading.
 """
 
 import logging
 from datetime import datetime
 from typing import Optional
 
-from .base import BaseDAO
+from sqlalchemy import select, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+from shared import ApiFetchCursor
+from . import BaseCoreDAO
 
 logger = logging.getLogger(__name__)
 
 
-class CursorDAO(BaseDAO):
-    """Data access for api_fetch_cursor table."""
+class CursorDAO(BaseCoreDAO):
+    """Data access for API fetch cursor tracking using SQLAlchemy Core."""
 
-    def upsert_cursor(
-        self,
-        connector_id: str,
-        endpoint_id: str,
-        device_id: str,
-        last_fetch_timestamp: datetime
-    ):
-        """Insert or update API fetch cursor."""
-        self.execute(
-            """
-            INSERT INTO api_fetch_cursor 
-                (connector_id, endpoint_id, device_id, last_fetch_timestamp, fetch_count)
-            VALUES (%s, %s, %s, %s, 1)
-            ON CONFLICT (connector_id, endpoint_id, device_id)
-            DO UPDATE SET
-                last_fetch_timestamp = EXCLUDED.last_fetch_timestamp,
-                last_fetch_success = NOW(),
-                fetch_count = api_fetch_cursor.fetch_count + 1,
-                updated_at = NOW()
-            """,
-            (connector_id, endpoint_id, device_id, last_fetch_timestamp)
-        )
-        self.commit()
+    def __init__(self, connection):
+        super().__init__(connection)
+        self.table = ApiFetchCursor.__table__
 
     def get_cursor(
         self,
         connector_id: str,
         endpoint_id: str,
-        device_id: str
-    ) -> Optional[datetime]:
-        """Get last fetch timestamp for a device/endpoint."""
-        result = self.fetch_one(
-            """
-            SELECT last_fetch_timestamp
-            FROM api_fetch_cursor
-            WHERE connector_id = %s
-              AND endpoint_id = %s
-              AND device_id = %s
-            """,
-            (connector_id, endpoint_id, device_id)
-        )
-        return result[0] if result else None
-
-
-class EnvironmentalMetricsDAO(BaseDAO):
-    """Data access for environmental_metrics table (read operations)."""
-
-    def get_max_timestamp(self, device_id: str) -> Optional[datetime]:
-        """Get max timestamp for a device from environmental_metrics."""
-        result = self.fetch_one(
-            """
-            SELECT MAX(timestamp)
-            FROM environmental_metrics
-            WHERE source_device_id = %s
-            """,
-            (device_id,)
-        )
-        return result[0] if result and result[0] else None
-
-
-class EnergyMetricsDAO(BaseDAO):
-    """Data access for energy fact tables (read operations for cursor fallback)."""
-
-    def get_max_timestamp(self, device_id: str, granularity: str = 'hourly') -> Optional[datetime]:
+        datasource_id: int
+    ) -> datetime | None:
         """
-        Get max timestamp for a device from energy fact table.
+        Get last fetch timestamp for a datasource/endpoint combination.
+
+        Returns:
+            Last fetch timestamp or None if no cursor exists
+        """
+        stmt = select(self.table.c.last_fetch_timestamp).where(
+            self.table.c.connector_id == connector_id,
+            self.table.c.endpoint_id == endpoint_id,
+            self.table.c.datasource_id == datasource_id
+        )
+        return self.scalar(stmt)
+
+    def update_cursor(
+        self,
+        connector_id: str,
+        endpoint_id: str,
+        datasource_id: int,
+        timestamp: datetime
+    ):
+        """
+        Update or create fetch cursor.
+
+        Uses PostgreSQL upsert for atomic operation.
+        """
+        stmt = pg_insert(self.table).values(
+            connector_id=connector_id,
+            endpoint_id=endpoint_id,
+            datasource_id=datasource_id,
+            last_fetch_timestamp=timestamp,
+            last_fetch_success=func.now(),
+            fetch_count=1
+        )
+
+        # On conflict, update timestamp and increment count
+        stmt = stmt.on_conflict_do_update(
+            constraint='uq_api_cursor_connector_endpoint_datasource',
+            set_={
+                'last_fetch_timestamp': timestamp,
+                'last_fetch_success': func.now(),
+                'fetch_count': self.table.c.fetch_count + 1,
+                'updated_at': func.now()
+            }
+        )
+
+        self.execute(stmt)
+
+    def get_all_cursors(
+        self,
+        connector_id: Optional[str] = None
+    ) -> list[dict]:
+        """Get all cursors, optionally filtered by connector."""
+        stmt = select(self.table)
+        
+        if connector_id:
+            stmt = stmt.where(self.table.c.connector_id == connector_id)
+        
+        stmt = stmt.order_by(
+            self.table.c.connector_id,
+            self.table.c.endpoint_id,
+            self.table.c.datasource_id
+        )
+        
+        rows = self.fetch_all(stmt)
+        return [dict(row._mapping) for row in rows]
+
+    def delete_cursor(
+        self,
+        connector_id: str,
+        endpoint_id: str,
+        datasource_id: int
+    ) -> bool:
+        """Delete a specific cursor. Returns True if deleted."""
+        from sqlalchemy import delete
+        
+        stmt = delete(self.table).where(
+            self.table.c.connector_id == connector_id,
+            self.table.c.endpoint_id == endpoint_id,
+            self.table.c.datasource_id == datasource_id
+        )
+        
+        result = self.execute(stmt)
+        return result.rowcount > 0
+
+    def reset_all_cursors(self, connector_id: str) -> int:
+        """Reset all cursors for a connector. Returns count of deleted cursors."""
+        from sqlalchemy import delete
+        
+        stmt = delete(self.table).where(
+            self.table.c.connector_id == connector_id
+        )
+        
+        result = self.execute(stmt)
+        return result.rowcount
+
+    # -------------------------------------------------------------------------
+    # Fallback Queries (for cursor recovery from data tables)
+    # -------------------------------------------------------------------------
+
+    def get_max_environmental_timestamp(self, datasource_id: int) -> datetime | None:
+        """
+        Get max timestamp from environmental_metrics for cursor fallback.
         
         Args:
-            device_id: External device identifier
-            granularity: 'hourly' or 'daily'
-        
+            datasource_id: Internal datasource identifier
+            
         Returns:
             Most recent timestamp or None
         """
-        # Determine table based on granularity
-        table = 'fact_energy_hourly' if granularity == 'hourly' else 'fact_energy_daily'
+        from shared import EnvironmentalMetrics
+        from sqlalchemy import select, func
         
-        # Need to resolve device_id to internal id via generic_device
-        result = self.fetch_one(
-            f"""
-            SELECT MAX(fe.ts)
-            FROM {table} fe
-            JOIN generic_device gd ON fe.device_id = gd.id
-            WHERE gd.device_id = %s
-            """,
-            (device_id,)
+        table = EnvironmentalMetrics.__table__
+        stmt = select(func.max(table.c.timestamp)).where(
+            table.c.source_device_id == datasource_id
         )
-        return result[0] if result and result[0] else None
+        return self.scalar(stmt)
+
+    def get_max_energy_timestamp(self, datasource_id: int, granularity: str = 'hourly') -> datetime | None:
+        """
+        Get max timestamp from energy fact table for cursor fallback.
+        
+        Args:
+            datasource_id: Internal datasource identifier
+            granularity: 'hourly' or 'daily'
+            
+        Returns:
+            Most recent timestamp or None
+        """
+        from shared import FactEnergyHourly, FactEnergyDaily, Datasource
+        from sqlalchemy import select, func
+        
+        # Choose table based on granularity
+        Model = FactEnergyHourly if granularity == 'hourly' else FactEnergyDaily
+        table = Model.__table__
+        datasource_table = Datasource.__table__
+        
+        # Join with datasource to resolve external_id to internal id
+        stmt = select(func.max(table.c.ts)).select_from(
+            table.join(datasource_table, table.c.datasource_id == datasource_table.c.id)
+        ).where(
+            datasource_table.c.id == datasource_id
+        )
+        
+        return self.scalar(stmt)

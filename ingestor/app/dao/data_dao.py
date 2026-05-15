@@ -1,85 +1,150 @@
 """
-Final data table access with conflict resolution.
+Data DAO using SQLAlchemy Core.
+
+Handles final data table inserts with conflict resolution.
 """
 
 import logging
-from typing import Any, Dict, List
+from sqlalchemy import insert, Table
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from .base import BaseDAO
+from shared import (
+    FactEnergyHourly,
+    FactEnergyDaily,
+    EnvironmentalMetrics,
+    DairyProduction,
+    FactSolarHourly,
+    FactSolarDaily,
+    FactSolarMonthly,
+    FactWeatherForecast
+)
+from . import BaseCoreDAO
 
 logger = logging.getLogger(__name__)
 
 
-class DataDAO(BaseDAO):
-    """Data access for final data tables with conflict resolution."""
+class DataDAO(BaseCoreDAO):
+    """Data access for final data tables with conflict resolution using SQLAlchemy Core."""
 
-    def __init__(self, connection, conflict_config: Dict[str, Any] = None):
+    # Map dataset names to model classes
+    FINAL_MODELS = {
+        'environmental_metrics': EnvironmentalMetrics,
+        'fact_energy_hourly': FactEnergyHourly,
+        'fact_energy_daily': FactEnergyDaily,
+        'dairy_production': DairyProduction,
+        'fact_solar_hourly': FactSolarHourly,
+        'fact_solar_daily': FactSolarDaily,
+        'fact_solar_monthly': FactSolarMonthly,
+        'fact_weather_forecast': FactWeatherForecast,
+    }
+
+    def __init__(self, connection, conflict_config: dict = None):
         super().__init__(connection)
         config = conflict_config or {}
         self.strategy = config.get('strategy', 'update')
         self.on_columns = config.get('on_columns', [])
         self.update_columns = config.get('update_columns', [])
 
-    def build_insert_sql(self, table: str, columns: List[str]) -> str:
-        """Build INSERT SQL with conflict resolution."""
-        placeholders = ', '.join(['%s'] * len(columns))
-        column_list = ', '.join(columns)
+    def get_table(self, dataset: str) -> Table:
+        """Get SQLAlchemy Table for dataset."""
+        if dataset not in self.FINAL_MODELS:
+            raise ValueError(f"No final table configured for dataset: {dataset}")
+        return self.FINAL_MODELS[dataset].__table__
 
-        sql = f"INSERT INTO {table} ({column_list}) VALUES ({placeholders})"
+    def _filter_record_to_table_columns(self, table: Table, record: dict) -> dict:
+        """Keep only keys that map to real target table columns."""
+        valid_columns = {col.name for col in table.columns}
+        return {
+            k: v for k, v in record.items()
+            if not k.startswith('_') and k in valid_columns
+        }
 
-        if not self.on_columns:
-            return sql
-
-        conflict_cols = ', '.join(self.on_columns)
-
-        if self.strategy == 'ignore':
-            sql += f" ON CONFLICT ({conflict_cols}) DO NOTHING"
-
-        elif self.strategy == 'update':
-            if self.update_columns:
-                updates = ', '.join([
-                    f"{col} = EXCLUDED.{col}"
-                    for col in self.update_columns
-                ])
-            else:
-                updates = ', '.join([
-                    f"{col} = EXCLUDED.{col}"
-                    for col in columns
-                    if col not in self.on_columns
-                ])
-            sql += f" ON CONFLICT ({conflict_cols}) DO UPDATE SET {updates}"
-
-        elif self.strategy == 'fail':
-            # No ON CONFLICT clause - let database raise error
-            pass
-
-        elif self.strategy == 'append':
-            sql += f" ON CONFLICT ({conflict_cols}) DO NOTHING"
-
-        return sql
-
-    def insert_record(self, table: str, record: Dict[str, Any]) -> bool:
+    def insert_record(self, dataset: str, record: dict) -> bool:
         """
-        Insert record with conflict resolution.
+        Insert record with conflict resolution using PostgreSQL upsert.
 
         Returns:
             True if inserted/updated, False if skipped
         """
-        # Remove internal fields
-        record = {k: v for k, v in record.items() if not k.startswith('_')}
+        table = self.get_table(dataset)
+        record = self._filter_record_to_table_columns(table, record)
 
-        columns = list(record.keys())
-        values = [record[col] for col in columns]
+        # Build upsert statement
+        stmt = pg_insert(table).values(**record)
+        
+        if self.on_columns:
+            if self.strategy == 'ignore':
+                stmt = stmt.on_conflict_do_nothing(index_elements=self.on_columns)
+            
+            elif self.strategy == 'update':
+                # Determine columns to update
+                if self.update_columns:
+                    update_dict = {col: stmt.excluded[col] for col in self.update_columns}
+                else:
+                    # Update all columns except conflict columns
+                    update_dict = {
+                        col.name: stmt.excluded[col.name]
+                        for col in table.columns
+                        if col.name not in self.on_columns
+                    }
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=self.on_columns,
+                    set_=update_dict
+                )
+            
+            elif self.strategy == 'fail':
+                # No conflict handling - let database raise error
+                pass
+        
+        result = self.execute(stmt)
+        return result.rowcount > 0
 
-        sql = self.build_insert_sql(table, columns)
+    def insert_batch(self, dataset: str, records: list[dict]) -> int:
+        """
+        Insert multiple records using bulk operations.
+        
+        For best performance with large batches.
+        
+        Returns count of successful inserts.
+        """
+        if not records:
+            return 0
+        
+        table = self.get_table(dataset)
+        clean_records = [
+            self._filter_record_to_table_columns(table, rec)
+            for rec in records
+        ]
 
-        count = self.execute(sql, tuple(values))
-        return count > 0
-
-    def insert_batch(self, table: str, records: List[Dict[str, Any]]) -> int:
-        """Insert multiple records, returns count of successful inserts."""
+        if not self.on_columns:
+            # Simple bulk insert
+            stmt = insert(table).values(clean_records)
+            result = self.execute(stmt)
+            return result.rowcount
+        
+        # Batch upsert
         success_count = 0
-        for record in records:
-            if self.insert_record(table, record):
+        for record in clean_records:
+            if self.insert_record(dataset, record):
                 success_count += 1
+        
         return success_count
+
+    def bulk_insert_raw(self, dataset: str, records: list[dict]) -> int:
+        """
+        High-performance bulk insert without conflict handling.
+        
+        Use when you're sure there are no conflicts.
+        """
+        if not records:
+            return 0
+        
+        table = self.get_table(dataset)
+        clean_records = [
+            self._filter_record_to_table_columns(table, rec)
+            for rec in records
+        ]
+
+        stmt = insert(table).values(clean_records)
+        result = self.execute(stmt)
+        return result.rowcount

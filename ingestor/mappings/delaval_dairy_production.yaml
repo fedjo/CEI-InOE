@@ -1,0 +1,61 @@
+# Delaval Milking Performance → dairy_production Mapping
+#
+# This mapping handles Delaval "Milking Performance Parlour" exports
+# after preprocessing by delaval_preprocessor.py.
+#
+# The preprocessor extracts daily totals and normalizes columns to:
+# - Date: YYYY-MM-DD
+# - Day production/cow (kg): float
+# - Nr. animals: int
+# - parlour_name: str (stored in source_device_id)
+
+dataset: dairy_production
+granularity: daily
+
+# Column mapping: preprocessor output → database column
+columns:
+  "Date": production_date
+  "Day production/cow (kg)": day_production_per_cow_kg
+  "Nr. animals": number_of_animals
+
+# Type coercions
+coercions:
+  production_date: date
+  day_production_per_cow_kg: float
+  number_of_animals: int
+
+# Primary key for deduplication
+primary_key:
+  - production_date
+
+# Validation Rules
+validation_rules:
+  schema:
+    required:
+      - production_date
+  
+  constraints:
+    day_production_per_cow_kg:
+      min: 0
+      max: 100
+    number_of_animals:
+      min: 1
+      max: 10000
+
+# Conflict Resolution Strategy
+# Update existing records when date + source match
+conflict_resolution:
+  strategy: update
+  on_columns:
+    - production_date
+    - source_batch_id
+  update_columns:
+    - day_production_per_cow_kg
+    - number_of_animals
+
+# Target Configuration
+target_table: dairy_production
+staging_table: staging_dairy_production
+
+# Preprocessor configuration
+preprocessor: delaval

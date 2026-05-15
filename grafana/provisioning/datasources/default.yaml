@@ -6,7 +6,7 @@ datasources:
     uid: postgres_default
     access: proxy
     url: host.docker.internal:5432
-    database: ocei3
+    database: ocei4
     user: ocei
     isDefault: true
     editable: true

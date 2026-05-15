@@ -66,8 +66,8 @@ class PydanticTransformer:
             source_context: Source metadata dict with keys:
                 - source_type: 'csv', 'api', 'excel'
                 - source_file: UUID of ingest_file
-                - device_id: Device identifier string
-                - api_endpoint: API URL (if source_type == 'api')
+                - datasource_id: Data source identifier string
+                - source_api_endpoint: API URL (if source_type == 'api')
                 - ingestion_method: 'batch' or 'streaming'
         
         Returns:
@@ -83,24 +83,16 @@ class PydanticTransformer:
             if csv_col in raw_data:
                 mapped_data[db_col] = raw_data[csv_col]
 
-        # ── Step 2: Inject source metadata and device_id ────────────────────────────────
-        if 'energy' in self.dataset:
-            # Inject device_id for energy datasets
-            device_id = source_context.get('device_id')
-            if device_id is not None:
-                mapped_data['device_id'] = device_id  # Assuming device_id is integer FK
+        # ── Step 2: Inject source metadata ────────────────────────────────
         # These fields are defined in BaseRecord but won't be inserted to DB
         # (they're excluded in model_dump below)
-        source_type_str = source_context.get('source_type', 'csv')
-        try:
-            mapped_data['source_type'] = SourceType(source_type_str)
-        except ValueError:
-            mapped_data['source_type'] = SourceType.UNKNOWN
 
-        mapped_data['source_file'] = source_context.get('source_file')
+        mapped_data['source_type'] = source_context.get('source_type')
         mapped_data['source_api_endpoint'] = source_context.get('source_api_endpoint')
-        mapped_data['source_device_id'] = str(source_context.get('device_id'))
-        mapped_data['ingestion_method'] = source_context.get('ingestion_method', 'batch')
+        datasource_id = source_context.get('datasource_id')
+        if datasource_id is not None:
+            mapped_data['source_device_id'] = str(datasource_id)
+            mapped_data['datasource_id'] = datasource_id
         mapped_data['ingested_at'] = datetime.now()
 
         # ── Step 3: Validate with Pydantic ────────────────────────────────
@@ -111,7 +103,6 @@ class PydanticTransformer:
             # Exclude source metadata fields (they're for tracking, not DB columns)
             transformed = validated_model.model_dump(
                 # exclude={
-                #     'source_type',
                 #     'source_api_endpoint',
                 #     'source_device_id',
                 #     'ingestion_method',
@@ -119,15 +110,6 @@ class PydanticTransformer:
                 # },
                 exclude_none=False,  # Keep None values for optional fields
             )
-
-            # Handle source_file separately - it IS a DB column for some tables
-            if source_context.get('source_file'):
-                # Ensure it's a UUID, not string
-                sf = source_context['source_file']
-                transformed['source_file'] = sf if isinstance(sf, UUID) else UUID(str(sf))
-            else:
-                # Remove if None to avoid inserting NULL
-                transformed.pop('source_file', None)
 
             return transformed, result
             

@@ -1,108 +1,75 @@
 """Environmental metrics queries."""
 
-from datetime import date
-from typing import Any
+from datetime import date, datetime
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from app.db.connection import execute_query, execute_one, execute_count
+from shared import EnvironmentalMetrics
 
 
 def get_metrics(
+    db: Session,
     start_date: date,
     end_date: date,
     source_device_id: str | None = None,
     page: int = 1,
     page_size: int = 100
-) -> tuple[list[dict[str, Any]], int]:
+) -> tuple[list[EnvironmentalMetrics], int]:
     """
-    Get environmental metrics records from environmental_metrics table.
+    Get environmental metrics with optional filters.
     
     Returns:
         Tuple of (records, total_count)
     """
-    conditions = ["timestamp >= :start_date", "timestamp < :end_date + INTERVAL '1 day'"]
-    params: dict[str, Any] = {
-        "start_date": start_date,
-        "end_date": end_date,
-        "limit": page_size,
-        "offset": (page - 1) * page_size
-    }
+    # Convert dates to datetime for comparison
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+    
+    query = db.query(EnvironmentalMetrics).filter(
+        EnvironmentalMetrics.timestamp >= start_dt,
+        EnvironmentalMetrics.timestamp <= end_dt
+    )
     
     if source_device_id:
-        conditions.append("source_device_id = :source_device_id")
-        params["source_device_id"] = source_device_id
+        query = query.filter(EnvironmentalMetrics.source_device_id == source_device_id)
     
-    where_clause = " AND ".join(conditions)
+    total = query.count()
     
-    # Get total count
-    count_query = f"""
-        SELECT COUNT(*) as count 
-        FROM environmental_metrics 
-        WHERE {where_clause}
-    """
-    total = execute_count(count_query, params)
+    records = query.order_by(EnvironmentalMetrics.timestamp.desc()) \
+        .offset((page - 1) * page_size) \
+        .limit(page_size) \
+        .all()
     
-    # Get data
-    data_query = f"""
-        SELECT 
-            id,
-            timestamp,
-            temperature,
-            humidity,
-            atm_pressure,
-            pm10,
-            pm2p5,
-            noise_level_db,
-            wind_speed,
-            wind_angle,
-            wind_direction_sectors,
-            source_device_id,
-            source_type,
-            source_file,
-            created_at
-        FROM environmental_metrics
-        WHERE {where_clause}
-        ORDER BY timestamp DESC
-        LIMIT :limit OFFSET :offset
-    """
-    rows = execute_query(data_query, params)
-    
-    return rows, total
+    return records, total
 
 
-def get_latest() -> dict[str, Any] | None:
-    """Get most recent environmental reading."""
-    query = """
-        SELECT 
-            id,
-            timestamp,
-            temperature,
-            humidity,
-            atm_pressure,
-            pm10,
-            pm2p5,
-            noise_level_db,
-            wind_speed,
-            wind_angle,
-            wind_direction_sectors
-        FROM environmental_metrics
-        ORDER BY timestamp DESC
-        LIMIT 1
-    """
-    return execute_one(query)
+def get_latest(db: Session) -> EnvironmentalMetrics | None:
+    """Get the most recent environmental reading."""
+    return db.query(EnvironmentalMetrics) \
+        .order_by(EnvironmentalMetrics.timestamp.desc()) \
+        .first()
 
 
-def get_stats() -> dict[str, Any]:
+def get_stats(db: Session) -> dict:
     """Get environmental data statistics."""
-    query = """
-        SELECT 
-            COUNT(*) as total_count,
-            MIN(timestamp) as first_record,
-            MAX(timestamp) as last_record,
-            ROUND(AVG(temperature)::numeric, 2) as avg_temperature,
-            ROUND(AVG(humidity)::numeric, 2) as avg_humidity,
-            ROUND(AVG(pm10)::numeric, 2) as avg_pm10,
-            ROUND(AVG(pm2p5)::numeric, 2) as avg_pm2p5,
-            COUNT(DISTINCT DATE(timestamp)) as days_with_data
-        FROM environmental_metrics
-    """
-    return execute_one(query) or {}
+    stats = db.query(
+        func.count(EnvironmentalMetrics.id).label('count'),
+        func.min(EnvironmentalMetrics.timestamp).label('first'),
+        func.max(EnvironmentalMetrics.timestamp).label('last'),
+        func.avg(EnvironmentalMetrics.temperature).label('avg_temp'),
+        func.avg(EnvironmentalMetrics.humidity).label('avg_humidity'),
+        func.avg(EnvironmentalMetrics.pm10).label('avg_pm10'),
+        func.avg(EnvironmentalMetrics.pm2p5).label('avg_pm2p5'),
+        func.count(func.distinct(func.date(EnvironmentalMetrics.timestamp))).label('days')
+    ).first()
+    
+    return {
+        "total_count": stats.count or 0,
+        "first_record": stats.first,
+        "last_record": stats.last,
+        "avg_temperature": float(stats.avg_temp) if stats.avg_temp else None,
+        "avg_humidity": float(stats.avg_humidity) if stats.avg_humidity else None,
+        "avg_pm10": float(stats.avg_pm10) if stats.avg_pm10 else None,
+        "avg_pm2p5": float(stats.avg_pm2p5) if stats.avg_pm2p5 else None,
+        "days_with_data": stats.days or 0,
+    }

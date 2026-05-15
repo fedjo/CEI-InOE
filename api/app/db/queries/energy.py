@@ -1,167 +1,121 @@
-"""Energy data queries."""
+"""Energy queries."""
 
-from datetime import date
-from typing import Any
+from datetime import date, datetime
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from app.db.connection import execute_query, execute_one, execute_count
+from shared import FactEnergyHourly, FactEnergyDaily, IngestBatch
 
 
 def get_hourly(
+    db: Session,
     start_date: date,
     end_date: date,
-    device_id: int | None = None,
+    datasource_id: int | None = None,
     page: int = 1,
     page_size: int = 100
-) -> tuple[list[dict[str, Any]], int]:
+) -> tuple[list[FactEnergyHourly], int]:
     """
-    Get hourly energy records from fact_energy_hourly.
+    Get hourly energy records with optional filters.
     
     Returns:
         Tuple of (records, total_count)
     """
-    conditions = ["ts >= :start_date", "ts < :end_date + INTERVAL '1 day'"]
-    params: dict[str, Any] = {
-        "start_date": start_date,
-        "end_date": end_date,
-        "limit": page_size,
-        "offset": (page - 1) * page_size
-    }
+    # Convert dates to datetime for comparison
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
     
-    if device_id is not None:
-        conditions.append("device_id = :device_id")
-        params["device_id"] = device_id
+    query = db.query(FactEnergyHourly).filter(
+        FactEnergyHourly.ts >= start_dt,
+        FactEnergyHourly.ts <= end_dt
+    )
     
-    where_clause = " AND ".join(conditions)
+    if datasource_id:
+        query = query.join(
+            IngestBatch, FactEnergyHourly.source_batch_id == IngestBatch.batch_id
+        ).filter(IngestBatch.datasource_id == datasource_id)
     
-    # Get total count
-    count_query = f"""
-        SELECT COUNT(*) as count 
-        FROM fact_energy_hourly 
-        WHERE {where_clause}
-    """
-    total = execute_count(count_query, params)
+    total = query.count()
     
-    # Get data
-    data_query = f"""
-        SELECT 
-            energy_id as id,
-            device_id,
-            ts,
-            energy_kwh as kwh,
-            source_type,
-            ingestion_method,
-            ingested_at
-        FROM fact_energy_hourly
-        WHERE {where_clause}
-        ORDER BY ts DESC
-        LIMIT :limit OFFSET :offset
-    """
-    rows = execute_query(data_query, params)
+    records = query.order_by(FactEnergyHourly.ts.desc()) \
+        .offset((page - 1) * page_size) \
+        .limit(page_size) \
+        .all()
     
-    return rows, total
+    return records, total
 
 
 def get_daily(
+    db: Session,
     start_date: date,
     end_date: date,
-    device_id: int | None = None,
+    datasource_id: int | None = None,
     page: int = 1,
     page_size: int = 100
-) -> tuple[list[dict[str, Any]], int]:
+) -> tuple[list[FactEnergyDaily], int]:
     """
-    Get daily energy records from fact_energy_daily.
+    Get daily energy records with optional filters.
     
     Returns:
         Tuple of (records, total_count)
     """
-    conditions = ["ts >= :start_date", "ts <= :end_date"]
-    params: dict[str, Any] = {
-        "start_date": start_date,
-        "end_date": end_date,
-        "limit": page_size,
-        "offset": (page - 1) * page_size
-    }
+    query = db.query(FactEnergyDaily).filter(
+        FactEnergyDaily.ts >= start_date,
+        FactEnergyDaily.ts <= end_date
+    )
     
-    if device_id is not None:
-        conditions.append("device_id = :device_id")
-        params["device_id"] = device_id
+    if datasource_id:
+        query = query.join(
+            IngestBatch, FactEnergyDaily.source_batch_id == IngestBatch.batch_id
+        ).filter(IngestBatch.datasource_id == datasource_id)
     
-    where_clause = " AND ".join(conditions)
+    total = query.count()
     
-    # Get total count
-    count_query = f"""
-        SELECT COUNT(*) as count 
-        FROM fact_energy_daily 
-        WHERE {where_clause}
-    """
-    total = execute_count(count_query, params)
+    records = query.order_by(FactEnergyDaily.ts.desc()) \
+        .offset((page - 1) * page_size) \
+        .limit(page_size) \
+        .all()
     
-    # Get data
-    data_query = f"""
-        SELECT 
-            energy_id as id,
-            device_id,
-            ts as day,
-            energy_kwh as kwh,
-            source_type,
-            ingestion_method,
-            ingested_at
-        FROM fact_energy_daily
-        WHERE {where_clause}
-        ORDER BY ts DESC
-        LIMIT :limit OFFSET :offset
-    """
-    rows = execute_query(data_query, params)
-    
-    return rows, total
+    return records, total
 
 
-def get_latest_hourly(device_id: int | None = None) -> dict[str, Any] | None:
-    """Get most recent hourly energy reading."""
-    if device_id:
-        query = """
-            SELECT 
-                energy_id as id,
-                device_id,
-                ts,
-                energy_kwh as kwh,
-                source_type,
-                ingestion_method,
-                ingested_at
-            FROM fact_energy_hourly
-            WHERE device_id = :device_id
-            ORDER BY ts DESC
-            LIMIT 1
-        """
-        return execute_one(query, {"device_id": device_id})
-    else:
-        query = """
-            SELECT 
-                energy_id as id,
-                device_id,
-                ts,
-                energy_kwh as kwh,
-                source_type,
-                ingestion_method,
-                ingested_at
-            FROM fact_energy_hourly
-            ORDER BY ts DESC
-            LIMIT 1
-        """
-        return execute_one(query)
+def get_latest_hourly(db: Session, datasource_id: int | None = None) -> FactEnergyHourly | None:
+    """Get the most recent hourly energy reading."""
+    query = db.query(FactEnergyHourly)
+    
+    if datasource_id:
+        query = query.join(
+            IngestBatch, FactEnergyHourly.source_batch_id == IngestBatch.batch_id
+        ).filter(IngestBatch.datasource_id == datasource_id)
+    
+    return query.order_by(FactEnergyHourly.ts.desc()).first()
 
 
-def get_stats() -> dict[str, Any]:
+def get_stats(db: Session) -> dict:
     """Get energy data statistics."""
-    query = """
-        SELECT 
-            (SELECT COUNT(*) FROM fact_energy_hourly) as hourly_count,
-            (SELECT COUNT(*) FROM fact_energy_daily) as daily_count,
-            (SELECT MIN(ts) FROM fact_energy_hourly) as hourly_first,
-            (SELECT MAX(ts) FROM fact_energy_hourly) as hourly_last,
-            (SELECT MIN(ts) FROM fact_energy_daily) as daily_first,
-            (SELECT MAX(ts) FROM fact_energy_daily) as daily_last,
-            (SELECT COUNT(DISTINCT device_id) FROM fact_energy_hourly) as hourly_devices,
-            (SELECT COUNT(DISTINCT device_id) FROM fact_energy_daily) as daily_devices
-    """
-    return execute_one(query) or {}
+    # Hourly stats
+    hourly_stats = db.query(
+        func.count(FactEnergyHourly.energy_id).label('count'),
+        func.min(FactEnergyHourly.ts).label('first'),
+        func.max(FactEnergyHourly.ts).label('last'),
+        func.count(func.distinct(FactEnergyHourly.source_device_id)).label('devices')
+    ).first()
+    
+    # Daily stats
+    daily_stats = db.query(
+        func.count(FactEnergyDaily.energy_id).label('count'),
+        func.min(FactEnergyDaily.ts).label('first'),
+        func.max(FactEnergyDaily.ts).label('last'),
+        func.count(func.distinct(FactEnergyDaily.source_device_id)).label('devices')
+    ).first()
+    
+    return {
+        "hourly_count": hourly_stats.count or 0,
+        "daily_count": daily_stats.count or 0,
+        "hourly_first": hourly_stats.first,
+        "hourly_last": hourly_stats.last,
+        "daily_first": daily_stats.first,
+        "daily_last": daily_stats.last,
+        "hourly_devices": hourly_stats.devices or 0,
+        "daily_devices": daily_stats.devices or 0,
+    }

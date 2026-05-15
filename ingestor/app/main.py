@@ -12,10 +12,10 @@ from threading import Event, Thread
 from typing import Dict, List
 
 from apscheduler.schedulers.background import BackgroundScheduler
-import psycopg2
 
 from config import (
     CONNECTOR_CONFIGS,
+    CONF_DIR,
     DB_DSN,
     LOG_FORMAT,
     LOG_LEVEL,
@@ -105,8 +105,8 @@ def make_discover_job(connector: BaseConnector, queue: Queue):
     """Create discover job for connector."""
     def job():
         try:
-            for item_id in connector.discover():
-                envelope = connector.fetch(item_id)
+            for ext_id in connector.discover():
+                envelope = connector.fetch(ext_id)
                 if envelope:
                     queue.put(envelope)
         except Exception as e:
@@ -135,15 +135,19 @@ class IngestorApp:
         logger.info("CEI-InOE Ingestor")
         logger.info("=" * 60)
 
-        # Get DB connection for API connectors
-        db_connection = psycopg2.connect(DB_DSN) if DB_DSN else None
+        # Bootstrap datasources and site from YAML configs in CONF_DIR
+        try:
+            from bootstrap import bootstrap_from_conf
+            bootstrap_from_conf(CONF_DIR)
+        except Exception as e:
+            logger.warning(f"Bootstrap error: {e}")
 
         # Create connectors
         for conn_id, config in CONNECTOR_CONFIGS.items():
             if not config.get('enabled', True):
                 continue
 
-            connector = create_connector(conn_id, config, db_connection)
+            connector = create_connector(conn_id, config)
             if not connector:
                 logger.error(f"Failed to create connector: {conn_id}")
                 continue

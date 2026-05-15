@@ -21,6 +21,7 @@ class SourceType(str, Enum):
     CSV = "csv"
     API = "api"
     EXCEL = "excel"
+    JSON = "json"
     UNKNOWN = "unknown"
 
 
@@ -35,11 +36,10 @@ class BaseRecord(BaseModel):
     """
 
     # Source metadata (injected during transformation, not from raw data)
-    source_type: Optional[SourceType] = None
-    source_file: Optional[UUID] = None
+    source_type: Optional[SourceType] = SourceType.UNKNOWN
     source_api_endpoint: Optional[str] = None
     source_device_id: Optional[str] = None
-    ingestion_method: Optional[str] = "batch"
+    datasource_id: Optional[int] = None
     ingested_at: Optional[datetime] = None
 
     model_config = ConfigDict(
@@ -162,14 +162,11 @@ class EnergyHourlyRecord(BaseRecord):
     Pydantic model for fact_energy_hourly table.
 
     Database schema:
-        - device_id: INTEGER FK (injected after validation)
         - ts: TIMESTAMP NOT NULL
         - energy_kwh: FLOAT NOT NULL
-        - source_file: UUID FK
     """
     ts: datetime
     energy_kwh: float = Field(ge=0, le=10000, description="Hourly energy consumption in kWh")
-    device_id: Optional[int] = None  # FK to device table, injected after validation
 
     @field_validator('ts', mode='before')
     @classmethod
@@ -192,15 +189,12 @@ class EnergyDailyRecord(BaseRecord):
     Pydantic model for fact_energy_daily table.
 
     Database schema:
-        - device_id: INTEGER FK (injected after validation)
         - ts: DATE NOT NULL
         - energy_kwh: FLOAT NOT NULL
-        - source_file: UUID FK
     """
     ts: date
     energy_kwh: float = Field(ge=0, le=100000, description="Daily energy consumption in kWh")
-    device_id: Optional[int] = None  # FK to device table, injected after validation
-    
+
     @field_validator('ts', mode='before')
     @classmethod
     def validate_ts(cls, v):
@@ -232,7 +226,6 @@ class EnvironmentalMetricsRecord(BaseRecord):
         - wind_direction_sectors: DECIMAL(6, 2)
         - wind_angle: DECIMAL(6, 2)
         - pm2p5: DECIMAL(8, 2)
-        - source_file: UUID FK
     """
     timestamp: datetime
     temperature: float = Field(ge=-50, le=60, description="Temperature in Celsius")
@@ -315,6 +308,109 @@ class DairyProductionRecord(BaseRecord):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Solar Records (FusionSolar API)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class SolarRecord(BaseRecord):
+    """Station KPI record from FusionSolar API (hourly/daily/monthly)."""
+    ts: datetime
+
+    pv_yield_kwh: Optional[float] = None
+    inverter_yield_kwh: Optional[float] = None
+    inverter_power_kw: Optional[float] = None
+    ongrid_power_kwh: Optional[float] = None
+    buy_power_kwh: Optional[float] = None
+    use_power_kwh: Optional[float] = None
+    self_use_power_kwh: Optional[float] = None
+    self_provide_pct: Optional[float] = None
+    perpower_ratio: Optional[float] = None
+    installed_capacity_kwp: Optional[float] = None
+    power_profit: Optional[float] = None
+    reduction_total_co2: Optional[float] = None
+    reduction_total_coal: Optional[float] = None
+    reduction_total_tree: Optional[float] = None
+
+    @field_validator('ts', mode='before')
+    @classmethod
+    def parse_ts(cls, v):
+        """Handle epoch milliseconds from FusionSolar API."""
+        if isinstance(v, (int, float)):
+            return datetime.fromtimestamp(v / 1000.0) if v > 1e12 else datetime.fromtimestamp(v)
+        return parse_datetime_with_ampm(v) if isinstance(v, str) else v
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Weather Forecast Record (Open-Meteo)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class WeatherForecastRecord(BaseRecord):
+    """
+    Pydantic model for fact_weather_forecast table.
+
+    Produced by the OpenMeteoConnector after zipping the parallel arrays
+    returned by the Open-Meteo /v1/forecast endpoint into per-hour dicts,
+    and enriching each row with forecast_run_at, horizon_hours, and site_id.
+    """
+    # Temporal keys (required)
+    valid_at: datetime
+    forecast_run_at: datetime
+    horizon_hours: int
+    site_id: int
+
+    # Solar radiation
+    shortwave_radiation_wm2: Optional[float] = None
+    direct_radiation_wm2: Optional[float] = None
+    direct_normal_irradiance_wm2: Optional[float] = None
+    diffuse_radiation_wm2: Optional[float] = None
+    global_tilted_irradiance_wm2: Optional[float] = None
+
+    # Cloud cover
+    cloud_cover_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    cloud_cover_low_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    cloud_cover_mid_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    cloud_cover_high_pct: Optional[float] = Field(default=None, ge=0, le=100)
+
+    # Supporting weather
+    temperature_2m_c: Optional[float] = Field(default=None, ge=-80, le=60)
+    wind_speed_10m_ms: Optional[float] = Field(default=None, ge=0, le=100)
+    wind_direction_10m_deg: Optional[float] = Field(default=None, ge=0, le=360)
+    precipitation_mm: Optional[float] = Field(default=None, ge=0)
+    weather_code: Optional[int] = None
+
+    # Derived
+    sunshine_duration_s: Optional[float] = Field(default=None, ge=0, le=3600)
+    is_day: Optional[bool] = None
+
+    # Model metadata
+    model_id: str = "best_match"
+
+    @field_validator('valid_at', 'forecast_run_at', mode='before')
+    @classmethod
+    def parse_dt(cls, v):
+        return parse_datetime_with_ampm(v) if isinstance(v, str) else v
+
+    @field_validator(
+        'shortwave_radiation_wm2', 'direct_radiation_wm2',
+        'direct_normal_irradiance_wm2', 'diffuse_radiation_wm2',
+        'global_tilted_irradiance_wm2', 'cloud_cover_pct',
+        'cloud_cover_low_pct', 'cloud_cover_mid_pct', 'cloud_cover_high_pct',
+        'temperature_2m_c', 'wind_speed_10m_ms', 'wind_direction_10m_deg',
+        'precipitation_mm', 'sunshine_duration_s',
+        mode='before'
+    )
+    @classmethod
+    def parse_floats(cls, v):
+        return parse_european_float(v)
+
+    @field_validator('is_day', mode='before')
+    @classmethod
+    def parse_is_day(cls, v):
+        if v is None:
+            return None
+        return bool(int(v)) if isinstance(v, (int, float, str)) else bool(v)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Model Registry
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -323,6 +419,10 @@ MODEL_REGISTRY: Dict[str, type[BaseRecord]] = {
     'energy_daily': EnergyDailyRecord,
     'environmental_metrics': EnvironmentalMetricsRecord,
     'dairy_production': DairyProductionRecord,
+    'solar_hourly': SolarRecord,
+    'solar_daily': SolarRecord,
+    'solar_monthly': SolarRecord,
+    'weather_forecast': WeatherForecastRecord,
 }
 
 

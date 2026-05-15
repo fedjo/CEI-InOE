@@ -1,132 +1,166 @@
 """
-Pipeline execution and quality metrics data access.
+Pipeline DAO using SQLAlchemy Core.
+
+Tracks pipeline execution stages for observability.
 """
 
-import json
 import logging
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Optional
 from uuid import UUID
 
-from .base import BaseDAO
+from sqlalchemy import select, insert, update, func
+
+from shared import PipelineExecution, DataQualityCheck
+from . import BaseCoreDAO
 
 logger = logging.getLogger(__name__)
 
 
-class PipelineDAO(BaseDAO):
-    """Data access for pipeline_execution and data_quality_checks tables."""
+class PipelineDAO(BaseCoreDAO):
+    """Data access for pipeline execution tracking using SQLAlchemy Core."""
 
-    def log_stage_start(
+    def __init__(self, connection):
+        super().__init__(connection)
+        self.execution_table = PipelineExecution.__table__
+        self.quality_table = DataQualityCheck.__table__
+
+    def start_stage(
         self,
-        file_id: Optional[UUID],
+        batch_id: UUID,
         pipeline_name: str,
         stage: str,
-        source_type: Optional[str] = None,
-        dataset: Optional[str] = None
-    ) -> Optional[int]:
-        """Log pipeline stage start, returns execution_id."""
-        metadata = {}
-        if dataset:
-            metadata['dataset'] = dataset
-        if source_type:
-            metadata['source_type'] = source_type
+        records_in: int = 0
+    ) -> int:
+        """Record start of pipeline stage."""
+        stmt = insert(self.execution_table).values(
+            batch_id=batch_id,
+            pipeline_name=pipeline_name,
+            stage=stage,
+            status='running',
+            records_in=records_in,
+            records_out=0,
+        ).returning(self.execution_table.c.id)
 
-        self.execute(
-            """
-            INSERT INTO pipeline_execution
-                (file_id, pipeline_name, stage, started_at, status, execution_metadata)
-            VALUES (%s, %s, %s, NOW(), 'running', %s)
-            """,
-            (
-                str(file_id) if file_id else None,
-                pipeline_name,
-                stage,
-                json.dumps(metadata) if metadata else None
-            )
-        )
-        self.commit()
-        return None  # We don't need execution_id for current implementation
+        return self.scalar(stmt)
 
-    def log_stage_end(
+    def complete_stage(
         self,
-        pipeline_name: str,
-        stage: str,
-        records_in: int,
-        records_out: int,
-        status: str = 'success',
-        error_message: Optional[str] = None
+        execution_id: int,
+        status: str,
+        records_out: int = 0,
+        error_message: Optional[str] = None,
+        metadata: Optional[dict] = None
     ):
-        """Log pipeline stage completion."""
-        self.execute(
-            """
-            UPDATE pipeline_execution
-            SET 
-                completed_at = NOW(),
-                status = %s,
-                records_in = %s,
-                records_out = %s,
-                error_message = %s
-            WHERE pipeline_name = %s 
-              AND stage = %s 
-              AND status = 'running'
-              AND started_at >= NOW() - INTERVAL '1 hour'
-            """,
-            (status, records_in, records_out, error_message, pipeline_name, stage)
+        """Record completion of pipeline stage."""
+        stmt = update(self.execution_table).where(
+            self.execution_table.c.id == execution_id
+        ).values(
+            status=status,
+            records_out=records_out,
+            error_message=error_message,
+            execution_metadata=metadata,
+            completed_at=func.now()
         )
-        self.commit()
+        self.execute(stmt)
 
-    def log_quality_check(
+    def fail_stage(
         self,
-        file_id: Optional[UUID],
+        execution_id: int,
+        error_message: str,
+        records_out: int = 0
+    ):
+        """Record stage failure."""
+        self.complete_stage(
+            execution_id=execution_id,
+            status='failed',
+            records_out=records_out,
+            error_message=error_message
+        )
+
+    def record_quality_check(
+        self,
+        batch_id: UUID,
         dataset: str,
         check_type: str,
         check_name: str,
         passed: bool,
-        failed_count: int,
-        total_count: int,
-        failure_rate: float,
-        sample_failures: Optional[Any] = None
-    ):
-        """Log data quality check results."""
-        self.execute(
-            """
-            INSERT INTO data_quality_checks
-                (file_id, dataset, check_type, check_name, passed, 
-                 failed_count, total_count, failure_rate, sample_failures)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                str(file_id) if file_id else None,
-                dataset,
-                check_type,
-                check_name,
-                passed,
-                failed_count,
-                total_count,
-                failure_rate,
-                json.dumps(sample_failures) if sample_failures else None
-            )
-        )
+        failed_count: int = 0,
+        total_count: int = 0,
+        sample_failures: Optional[list] = None
+    ) -> int:
+        """Record data quality check result."""
+        failure_rate = (failed_count / total_count * 100) if total_count > 0 else 0
 
-    def log_quality_checks_batch(
+        stmt = insert(self.quality_table).values(
+            batch_id=batch_id,
+            dataset=dataset,
+            check_type=check_type,
+            check_name=check_name,
+            passed=passed,
+            failed_count=failed_count,
+            total_count=total_count,
+            failure_rate=failure_rate,
+            sample_failures=sample_failures
+        ).returning(self.quality_table.c.id)
+
+        return self.scalar(stmt)
+
+    def get_execution_history(
         self,
-        file_id: Optional[UUID],
-        dataset: str,
-        error_types: Dict[str, List[Dict]],
-        total_count: int
-    ):
-        """Log multiple quality check types at once."""
-        for check_type, failures in error_types.items():
-            failed_count = len(failures)
-            failure_rate = (failed_count / total_count * 100) if total_count > 0 else 0
+        batch_id: Optional[UUID] = None,
+        pipeline_name: Optional[str] = None,
+        limit: int = 100
+    ) -> list[dict]:
+        """Get pipeline execution history."""
+        stmt = select(self.execution_table)
+        
+        if batch_id:
+            stmt = stmt.where(self.execution_table.c.batch_id == batch_id)
+        
+        if pipeline_name:
+            stmt = stmt.where(self.execution_table.c.pipeline_name == pipeline_name)
+        
+        stmt = stmt.order_by(self.execution_table.c.started_at.desc()).limit(limit)
+        
+        rows = self.fetch_all(stmt)
+        return [dict(row._mapping) for row in rows]
 
-            self.log_quality_check(
-                file_id=file_id,
-                dataset=dataset,
-                check_type=check_type,
-                check_name=f"{check_type}_validation",
-                passed=failed_count == 0,
-                failed_count=failed_count,
-                total_count=total_count,
-                failure_rate=round(failure_rate, 2),
-                sample_failures=failures[:10]  # Sample first 10
-            )
+    def get_quality_checks(
+        self,
+        batch_id: Optional[UUID] = None,
+        dataset: Optional[str] = None,
+        passed_only: bool = False
+    ) -> list[dict]:
+        """Get data quality check results."""
+        stmt = select(self.quality_table)
+        
+        if batch_id:
+            stmt = stmt.where(self.quality_table.c.batch_id == batch_id)
+        
+        if dataset:
+            stmt = stmt.where(self.quality_table.c.dataset == dataset)
+        
+        if passed_only:
+            stmt = stmt.where(self.quality_table.c.passed == True)
+        
+        stmt = stmt.order_by(self.quality_table.c.checked_at.desc())
+        
+        rows = self.fetch_all(stmt)
+        return [dict(row._mapping) for row in rows]
+
+    def get_stage_summary(self, batch_id: UUID) -> dict:
+        """Get summary of all stages for a batch."""
+        stmt = select(
+            self.execution_table.c.stage,
+            self.execution_table.c.status,
+            self.execution_table.c.records_in,
+            self.execution_table.c.records_out,
+            self.execution_table.c.started_at,
+            self.execution_table.c.completed_at
+        ).where(
+            self.execution_table.c.batch_id == batch_id
+        ).order_by(self.execution_table.c.started_at)
+        
+        rows = self.fetch_all(stmt)
+        return {row.stage: dict(row._mapping) for row in rows}

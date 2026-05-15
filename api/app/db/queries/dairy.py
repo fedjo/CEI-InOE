@@ -1,103 +1,66 @@
 """Dairy production queries."""
 
 from datetime import date
-from typing import Any
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from app.db.connection import execute_query, execute_one, execute_count
+from shared import DairyProduction
 
 
 def get_production(
+    db: Session,
     start_date: date | None = None,
     end_date: date | None = None,
     page: int = 1,
     page_size: int = 100
-) -> tuple[list[dict[str, Any]], int]:
+) -> tuple[list[DairyProduction], int]:
     """
-    Get dairy production records from dairy_production table.
+    Get dairy production records with optional filters.
     
     Returns:
         Tuple of (records, total_count)
     """
-    conditions = ["1=1"]
-    params: dict[str, Any] = {
-        "limit": page_size,
-        "offset": (page - 1) * page_size
-    }
+    query = db.query(DairyProduction)
     
     if start_date:
-        conditions.append("production_date >= :start_date")
-        params["start_date"] = start_date
+        query = query.filter(DairyProduction.production_date >= start_date)
     
     if end_date:
-        conditions.append("production_date <= :end_date")
-        params["end_date"] = end_date
+        query = query.filter(DairyProduction.production_date <= end_date)
     
-    where_clause = " AND ".join(conditions)
+    total = query.count()
     
-    # Get total count
-    count_query = f"""
-        SELECT COUNT(*) as count 
-        FROM dairy_production 
-        WHERE {where_clause}
-    """
-    total = execute_count(count_query, params)
+    records = query.order_by(DairyProduction.production_date.desc()) \
+        .offset((page - 1) * page_size) \
+        .limit(page_size) \
+        .all()
     
-    # Get data
-    data_query = f"""
-        SELECT 
-            id,
-            production_date,
-            day_production_per_cow_kg,
-            number_of_animals,
-            average_lactation_days,
-            fed_per_cow_total_kg,
-            fed_per_cow_water_kg,
-            feed_efficiency,
-            rumination_minutes,
-            source_type,
-            source_file,
-            ingested_at
-        FROM dairy_production
-        WHERE {where_clause}
-        ORDER BY production_date DESC
-        LIMIT :limit OFFSET :offset
-    """
-    rows = execute_query(data_query, params)
-    
-    return rows, total
+    return records, total
 
 
-def get_latest() -> dict[str, Any] | None:
-    """Get most recent dairy production record."""
-    query = """
-        SELECT 
-            id,
-            production_date,
-            day_production_per_cow_kg,
-            number_of_animals,
-            average_lactation_days,
-            fed_per_cow_total_kg,
-            fed_per_cow_water_kg,
-            feed_efficiency,
-            rumination_minutes
-        FROM dairy_production
-        ORDER BY production_date DESC
-        LIMIT 1
-    """
-    return execute_one(query)
+def get_latest(db: Session) -> DairyProduction | None:
+    """Get the most recent dairy production record."""
+    return db.query(DairyProduction) \
+        .order_by(DairyProduction.production_date.desc()) \
+        .first()
 
 
-def get_stats() -> dict[str, Any]:
-    """Get dairy data statistics."""
-    query = """
-        SELECT 
-            COUNT(*) as total_count,
-            MIN(production_date) as first_record,
-            MAX(production_date) as last_record,
-            ROUND(AVG(day_production_per_cow_kg)::numeric, 2) as avg_production_per_cow,
-            ROUND(AVG(number_of_animals)::numeric, 0) as avg_animals,
-            ROUND(AVG(feed_efficiency)::numeric, 4) as avg_feed_efficiency,
-            ROUND(AVG(rumination_minutes)::numeric, 0) as avg_rumination_minutes
-        FROM dairy_production
-    """
-    return execute_one(query) or {}
+def get_stats(db: Session) -> dict:
+    """Get dairy production statistics."""
+    stats = db.query(
+        func.count(DairyProduction.id).label('count'),
+        func.min(DairyProduction.production_date).label('first'),
+        func.max(DairyProduction.production_date).label('last'),
+        func.avg(DairyProduction.day_production_per_cow_kg).label('avg_production'),
+        func.avg(DairyProduction.number_of_animals).label('avg_animals'),
+        func.avg(DairyProduction.feed_efficiency).label('avg_efficiency'),
+    ).first()
+    
+    return {
+        "total_count": stats.count or 0,
+        "first_record": stats.first,
+        "last_record": stats.last,
+        "avg_production_per_cow": float(stats.avg_production) if stats.avg_production else None,
+        "avg_animals": int(stats.avg_animals) if stats.avg_animals else None,
+        "avg_feed_efficiency": float(stats.avg_efficiency) if stats.avg_efficiency else None,
+    }

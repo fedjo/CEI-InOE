@@ -13,6 +13,10 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from pydantic import BaseModel
 
+from models import SourceType
+from preprocessors import preprocess_delaval
+from preprocessors.delaval import is_delaval_format
+
 from .base import BaseConnector, ConnectorStatus, InputEnvelope
 
 logger = logging.getLogger(__name__)
@@ -102,7 +106,7 @@ class FileConnector(BaseConnector):
 
             # Detect content type
             ext = os.path.splitext(fname)[1].lower()
-            content_type = "excel" if ext in {'.xlsx', '.xls'} else "csv"
+            content_type = SourceType.EXCEL if ext in {'.xlsx', '.xls'} else SourceType.CSV
 
             # Read content
             content = self._read_file(path, content_type)
@@ -112,6 +116,7 @@ class FileConnector(BaseConnector):
 
             # Detect hints
             hints = self._detect_hints(path, content_type)
+            ds_id = self._load_datasource(str(hints.get('datasource_external_id')))
 
             envelope = InputEnvelope(
                 connector_id=self.connector_id,
@@ -121,7 +126,7 @@ class FileConnector(BaseConnector):
                 content=content,
                 content_type=content_type,
                 hint_mapping=hints.get('mapping'),
-                hint_device_id=hints.get('device_id'),
+                hint_datasource_id=ds_id,
                 hint_granularity=hints.get('granularity'),
                 metadata={
                     'file_name': fname,
@@ -192,8 +197,8 @@ class FileConnector(BaseConnector):
                 sha256.update(chunk)
         return sha256.hexdigest()
 
-    def _read_file(self, path: str, content_type: str) -> Optional[List[Dict]]:
-        """Read file as list of dicts."""
+    def _read_file(self, path: str, content_type: str, preprocessor: Optional[str] = None) -> Optional[List[Dict]]:
+        """Read file as list of dicts, optionally applying a preprocessor."""
         try:
             if content_type == "excel":
                 df = pd.read_excel(path)
@@ -202,6 +207,12 @@ class FileConnector(BaseConnector):
 
             df = df.dropna(how='all')
             df = df.replace({pd.NA: None, float('nan'): None})
+
+            # Check if Delaval format and apply preprocessor
+            if preprocessor == 'delaval' or is_delaval_format(list(df.columns)):
+                logger.info(f"[{self.connector_id}] Applying Delaval preprocessor")
+                raw_records = df.to_dict('records')
+                return preprocess_delaval(raw_records)
 
             # Remove summary rows
             if 'Date' in df.columns:
@@ -225,6 +236,22 @@ class FileConnector(BaseConnector):
             logger.error(f"[{self.connector_id}] Read error: {e}")
             return None
 
+    def _load_datasource(self, external_id: str) -> Optional[int]:
+        """Load datasource from database using DAO."""
+        try:
+            from shared import get_connection
+            from dao import DatasourceDAO
+
+            with get_connection() as conn:
+                datasource_dao = DatasourceDAO(conn)
+                ds_id = datasource_dao.resolve_id(external_id)
+                logger.debug(f"[{self.connector_id}] Loaded datasource: {external_id} → {ds_id}")
+                return ds_id
+
+        except Exception as e:
+            logger.error(f"[{self.connector_id}] Failed to load datasource: {e}")
+            return None
+
     def _detect_hints(self, path: str, content_type: str) -> Dict[str, Any]:
         """Detect dataset type and metadata."""
         fname = os.path.basename(path)
@@ -238,25 +265,35 @@ class FileConnector(BaseConnector):
             cols = {c.lower() for c in df.columns}
             
             # Detect by columns
-            if (cols & {'pm10', 'pm2p5', 'humidity', 'temperature', 'atm_pressure'} or \
+            # Check for Delaval format FIRST (before generic dairy)
+            if is_delaval_format(list(df.columns)):
+                mapping = 'delaval_dairy_production'
+                datasource_ext_id = 'delaval'
+                # Extract parlour name from filename if present
+                parlour_match = re.search(r'parlour\s*(\w+)', fname, re.IGNORECASE)
+                if parlour_match:
+                    datasource_ext_id = f"delaval_{parlour_match.group(1).lower()}"
+            elif (cols & {'pm10', 'pm2p5', 'humidity', 'temperature', 'atm_pressure'} or \
                 any ('µg/m' in c or 'hpa' in c.lower() for c in df.columns)):
-                mapping, device_id = 'environmental_metrics', 'testweather2'
+                mapping = 'environmental_metrics'
+                tokens = fname.split('_')
+                datasource_ext_id = tokens[1] if len(tokens) > 1 else 'unknown'
             elif (cols & {'nr. animals', 'feed efficiency', 'rumination'} or \
                 any('production' in c and 'cow' in c for c in cols)):
-                mapping, device_id = 'dairy_production', 'lelyna'
+                mapping, datasource_ext_id = 'dairy_production', 'lelyna'
             elif {'date and time'} & cols and len(df.columns) == 2:
                 second_col = [c for c in df.columns if c.lower() != 'date and time'][0]
                 mapping = 'energy_hourly' if 'hourly' in second_col.lower() else 'energy_daily'
                 m = re.match(r'^([a-f0-9]{20,})-', fname)
-                device_id = m.group(1) if m else None
+                datasource_ext_id = m.group(1) if m else 'unknown'
             else:
-                mapping, device_id = None, None
+                mapping, datasource_ext_id = None, 'unknown'
 
             granularity, start_date, end_date = self._detect_time_info(path, content_type)
             
             return {
                 'mapping': f"{self.mappings_dir}/{mapping}.yaml" if mapping else None,
-                'device_id': device_id,
+                'datasource_external_id': datasource_ext_id,
                 'granularity': granularity or 'daily',
                 'start_date': start_date,
                 'end_date': end_date,

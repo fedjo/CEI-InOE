@@ -1,0 +1,45 @@
+# Mapping for Tago.io API energy daily consumption data
+# Used by TagoConnector for ingesting diffday variable
+
+dataset: energy_daily
+granularity: daily
+
+# Column mapping (API field → internal field)
+columns:
+  ts: ts
+  energy_kwh: energy_kwh
+
+# Type coercions
+coercions:
+  ts: date
+  energy_kwh: float
+
+# Primary key for deduplication
+primary_key:
+  - source_batch_id
+  - ts
+
+# Validation Rules
+validation_rules:
+  schema:
+    required:
+      - ts
+      - energy_kwh
+  
+  constraints:
+    energy_kwh:
+      min: 0
+      max: 100000  # Reasonable max for daily consumption
+
+# Conflict Resolution Strategy
+conflict_resolution:
+  strategy: update
+  on_columns:
+    - datasource_id
+    - ts
+  update_columns:
+    - energy_kwh
+
+# Target Configuration
+target_table: fact_energy_daily
+staging_table: staging_energy_daily

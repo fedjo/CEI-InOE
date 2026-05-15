@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install alembic and dependencies
+RUN pip install --no-cache-dir alembic sqlalchemy psycopg2-binary
+
+# Copy shared package
+COPY shared/ /app/shared/
+RUN pip install -e /app/shared
+
+# Copy alembic configuration
+COPY alembic.ini /app/
+COPY alembic/ /app/alembic/
+
+# Default command
+CMD ["alembic", "upgrade", "head"]

@@ -29,10 +29,11 @@ class InputEnvelope(BaseModel):
     received_at: datetime = Field(default_factory=datetime.now)
     content: Any  # Raw data: List[Dict], bytes
     content_type: str  # "csv", "excel", "json"
-    
+
     # Pipeline hints
     hint_mapping: Optional[str] = None
-    hint_device_id: Optional[str] = None
+    hint_datasource_id: Optional[int] = None
+    hint_data_type: Optional[str] = None
     hint_granularity: Optional[str] = None
     
     # Provenance
@@ -59,12 +60,11 @@ class BaseConnector(ABC):
     Does NOT validate or transform business data.
     """
     
-    def __init__(self, connector_id: str, config: Dict[str, Any], db_connection=None):
+    def __init__(self, connector_id: str, config: Dict[str, Any]):
         self.connector_id = connector_id
         self.config = config
         self.status = ConnectorStatus.IDLE
         self._last_error: Optional[str] = None
-        self.db_connection = db_connection
 
 
     @abstractmethod
@@ -83,7 +83,7 @@ class BaseConnector(ABC):
         pass
     
     @abstractmethod
-    def fetch(self, item_id: str) -> Optional[InputEnvelope]:
+    def fetch(self, ext_id: str) -> Optional[InputEnvelope]:
         """Fetch and wrap item into InputEnvelope."""
         pass
     
