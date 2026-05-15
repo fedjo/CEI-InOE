@@ -17,7 +17,6 @@ CEI-InOE collects energy consumption, environmental sensor data, weather forecas
 
 ---
 
-
 ## Getting Started
 
 ### Prerequisites

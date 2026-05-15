@@ -1,0 +1,130 @@
+---
+- name: Deploy CEI-InOE to NUC
+  hosts: nuc
+  become: true
+
+  vars:
+    docker_apt_arch_map:
+      x86_64: amd64
+      aarch64: arm64
+    docker_apt_arch: "{{ docker_apt_arch_map[ansible_architecture] | default('amd64') }}"
+
+  pre_tasks:
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - git
+          - gnupg
+          - python3-pip
+        update_cache: true
+        state: present
+
+    - name: Create apt keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ docker_apt_arch }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker Engine and Compose plugin
+      ansible.builtin.apt:
+        name:
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-ce
+          - docker-ce-cli
+          - docker-compose-plugin
+        update_cache: true
+        state: present
+
+    - name: Ensure Docker is running
+      ansible.builtin.service:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Add remote user to docker group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Install Python Docker SDK
+      ansible.builtin.pip:
+        name:
+          - docker
+          - requests
+        state: present
+
+  tasks:
+    - name: Create deployment directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+      loop:
+        - "{{ cei_inoe_app_dir }}"
+        - "{{ cei_inoe_app_dir }}/data"
+        - "{{ cei_inoe_app_dir }}/data/incoming"
+        - "{{ cei_inoe_app_dir }}/data/processed"
+        - "{{ cei_inoe_app_dir }}/data/rejected"
+
+    - name: Checkout application repository
+      ansible.builtin.git:
+        repo: "{{ cei_inoe_repo_url }}"
+        dest: "{{ cei_inoe_app_dir }}"
+        version: "{{ cei_inoe_version }}"
+        update: true
+        accept_hostkey: true
+      become: false
+
+    - name: Render application environment file
+      ansible.builtin.template:
+        src: ../templates/cei-inoe.env.j2
+        dest: "{{ cei_inoe_app_dir }}/.env"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+
+    - name: Render Compose override
+      ansible.builtin.template:
+        src: ../templates/docker-compose.override.yml.j2
+        dest: "{{ cei_inoe_app_dir }}/docker-compose.override.yml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0644"
+
+    - name: Build and start CEI-InOE stack
+      community.docker.docker_compose_v2:
+        project_src: "{{ cei_inoe_app_dir }}"
+        files:
+          - docker-compose.new.yaml
+          - docker-compose.override.yml
+        build: always
+        remove_orphans: true
+        state: present
+      become: false
+
+    - name: Wait for API health endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ cei_inoe_api_port }}/health"
+        status_code: 200
+      register: api_health
+      retries: 20
+      delay: 10
+      until: api_health.status == 200
+      become: false
