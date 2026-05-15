@@ -104,3 +104,5 @@ __pypackages__/
 .env_local
 .env_remote
 grafana-*
+grafana-dashboards*
+.github/copilot-instructions.md
