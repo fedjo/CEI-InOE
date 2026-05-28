@@ -14,6 +14,7 @@ from typing import Dict, List
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from config import (
+    ACTIVE_SITE,
     CONNECTOR_CONFIGS,
     CONF_DIR,
     DB_DSN,
@@ -138,7 +139,7 @@ class IngestorApp:
         # Bootstrap datasources and site from YAML configs in CONF_DIR
         try:
             from bootstrap import bootstrap_from_conf
-            bootstrap_from_conf(CONF_DIR)
+            bootstrap_from_conf(CONF_DIR, active_site=ACTIVE_SITE)
         except Exception as e:
             logger.warning(f"Bootstrap error: {e}")
 

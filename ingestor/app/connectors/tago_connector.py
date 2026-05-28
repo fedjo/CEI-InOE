@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class TagoConnectorConfig(BaseModel):
     """Configuration for Tago.io connector."""
     type: str = "tago"
-    base_url: str = "https://api.tago.io"
+    base_url: str = "http://api.example.com"  # Placeholder, not used directly since endpoints are dynamic
     schedule_seconds: int = 3600  # Default: fetch every hour
     lookback_days: int = 7  # Default lookback if no cursor exists
     default_qty: int = 1000  # Max records per request

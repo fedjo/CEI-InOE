@@ -23,6 +23,8 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     logger.info("Starting CEI-InOE Data API...")
+    if not settings.api_key:
+        raise RuntimeError("API_KEY environment variable is not set. The API cannot start without it.")
     try:
         get_engine()  # Initialize connection pool
         logger.info("Database connection pool initialized")

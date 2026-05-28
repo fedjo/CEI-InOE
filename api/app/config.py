@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
     # Authentication
-    api_key: str = "cei-inoe-dev-key-2026"
+    api_key: str = ""
     
     # API
     api_title: str = "CEI-InOE Data API"

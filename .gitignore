@@ -78,6 +78,12 @@ data/
 # CSV, Excel files
 *.csv
 *.xlsx
+
+# Runtime config with secrets (use *.example as template)
+ingestor/conf/datasources.yaml
+
+# Local deployment notes
+deploy.md
 *.xls
 
 # Misc
