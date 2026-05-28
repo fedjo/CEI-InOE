@@ -82,6 +82,10 @@ data/
 # Runtime config with secrets (use *.example as template)
 ingestor/conf/datasources.yaml
 
+# Ansible vault (must be encrypted with ansible-vault before committing)
+# Run: ansible-vault encrypt ansible/group_vars/nuc/vault.yml
+ansible/group_vars/nuc/vault.yml
+
 # Local deployment notes
 deploy.md
 *.xls

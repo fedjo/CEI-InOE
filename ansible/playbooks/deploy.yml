@@ -61,6 +61,9 @@
         groups: docker
         append: true
 
+    - name: Reset SSH connection to apply docker group membership
+      ansible.builtin.meta: reset_connection
+
     - name: Install Python Docker SDK
       ansible.builtin.pip:
         name:
@@ -107,6 +110,14 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0644"
+
+    - name: Deploy datasources configuration
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../ingestor/conf/datasources.yaml"
+        dest: "{{ cei_inoe_app_dir }}/ingestor/conf/datasources.yaml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
 
     - name: Build and start CEI-InOE stack
       community.docker.docker_compose_v2:
