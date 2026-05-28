@@ -72,7 +72,7 @@ AIRBELD_LOOKBACK_DAYS = int(os.environ.get('AIRBELD_LOOKBACK_DAYS', '7'))
 # Tago.io Energy API Configuration
 # ============================================================================
 
-TAGO_API_URL = os.environ.get('TAGO_API_URL', 'https://api.tago.io')
+TAGO_API_URL = os.environ.get('TAGO_API_URL', 'http://api.example.com')
 TAGO_POLL_INTERVAL = int(os.environ.get('TAGO_POLL_INTERVAL', '3600'))  # 1-hour in seconds
 TAGO_LOOKBACK_DAYS = int(os.environ.get('TAGO_LOOKBACK_DAYS', '7'))
 TAGO_ENABLED = os.environ.get('TAGO_ENABLED', 'true').lower() == 'true'
@@ -82,7 +82,7 @@ TAGO_ENABLED = os.environ.get('TAGO_ENABLED', 'true').lower() == 'true'
 # FusionSolar API Configuration
 # ============================================================================
 
-FUSIONSOLAR_API_URL = os.environ.get('FUSIONSOLAR_API_URL', 'https://intl.fusionsolar.huawei.com/thirdData')
+FUSIONSOLAR_API_URL = os.environ.get('FUSIONSOLAR_API_URL', 'http://api.example.com')
 FUSIONSOLAR_USER = os.environ.get('FUSIONSOLAR_USER', '')
 FUSIONSOLAR_SYSTEM_CODE = os.environ.get('FUSIONSOLAR_SYSTEM_CODE', '')
 FUSIONSOLAR_POLL_INTERVAL = int(os.environ.get('FUSIONSOLAR_POLL_INTERVAL', '3600'))
@@ -113,6 +113,10 @@ OPEN_METEO_ENABLED = os.environ.get('OPEN_METEO_ENABLED', 'true').lower() == 'tr
 
 # Directory containing site_config.yaml and datasources.yaml
 CONF_DIR = os.environ.get('CONF_DIR', '/app/conf')
+
+# Active site key — selects which entry under 'sites:' in site_config.yaml is activated.
+# Valid values: blue_farm | lk_farm | charalambides
+ACTIVE_SITE = os.environ.get('ACTIVE_SITE', '')
 
 
 # ============================================================================

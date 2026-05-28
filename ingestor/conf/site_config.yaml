@@ -1,75 +1,81 @@
 # CEI-InOE Site Configuration
 # Loaded on ingestor startup — upserted into the database.
+#
+# Set ACTIVE_SITE in .env to select which site to activate.
+# Valid values: blue_farm | lk_farm | charalambides
+# Datasources belonging to the active site are set to "online"; all others remain "offline".
 
-# site:
-#   name: "LK Dairy Farm"
-#   location:
-#     type: Point
-#     coordinates: [33.4126347, 35.0213149] # [longitude, latitude]
-#   site_type: dairy_farm                # dairy_farm | factory | other
-#   owner:
-#     name: "Demo Organisation"
-#     type: organisation                 # person | organisation
-#     contact_email: owner@example.com
-#   administrator_email: admin@example.com
-#   data_sources:                        # external_ids of datasources belonging to this site
-#     - "68fbe8f50ad75e000a4d2158"
-#     - "68fbe8f5374f09000ac4bbe1"
-#     - "68fbe8f56fe6f1000adeffcc"
-#     - "68fbe8f576b75a000ae1d4dd"
-#     - "68fbe8f594138e000a6e9260"
-#     - "6902200ea4feb40009ef39b8"
-#     - "68fbe8f5eb5462000945a324"
-#     - "68fbed1b76b75a000ae2401a"
-#     - lelyna
-#     - "1236"
-#     - "1741"
-#     - "1743"
-#     - "openmeteo_forecast"
+sites:
 
-site:
-  name: "Blue Farm Dairy"
-  location:
-    type: Point
-    coordinates: [33.4126347, 35.0213149] # [longitude, latitude]
-  site_type: dairy_farm                # dairy_farm | factory | other
-  owner:
-    name: "Demo Organisation"
-    type: organisation                 # person | organisation
-    contact_email: owner@example.com
-  administrator_email: admin@example.com
-  data_sources:                        # external_ids of datasources belonging to this site
-    - "68f1fb6550bcae000b4c2501"
-    - "68f1fb6546b86e0009bf15bc"
-    - "68f1fb65640d9e000b79873b"
-    - "68f1fb6546b86e0009bf15bb"
-    - "68f1fb651a7bea0010b823c3"
-    - "68f1fb650def81000a44a0a7"
-    - "68f1fb6521551f000a728daa"
-    - "delaval"
-    - "1740"
-    - "1742"
-    - "1744"
-    - "openmeteo_forecast"
+  blue_farm:
+    name: "Blue Farm Dairy"
+    location:
+      type: Point
+      coordinates: [33.4126347, 35.0213149]  # [longitude, latitude]
+    site_type: dairy_farm                     # dairy_farm | factory | other
+    owner:
+      name: "Demo Organisation"
+      type: organisation                      # person | organisation
+      contact_email: owner@example.com
+    administrator_email: admin@example.com
+    data_sources:
+      - "68f1fb6550bcae000b4c2501"
+      - "68f1fb6546b86e0009bf15bc"
+      - "68f1fb65640d9e000b79873b"
+      - "68f1fb6546b86e0009bf15bb"
+      - "68f1fb651a7bea0010b823c3"
+      - "68f1fb650def81000a44a0a7"
+      - "68f1fb6521551f000a728daa"
+      - delaval
+      - "1740"
+      - "1742"
+      - "1744"
+      - openmeteo_forecast
 
-# site:
-#   name: "Charalambides Factory"
-#   location:
-#     type: Point
-#     coordinates: [33.4126347, 35.0213149] # [longitude, latitude]
-#   site_type: factory                # dairy_farm | factory | other
-#   owner:
-#     name: "Demo Organisation"
-#     type: organisation                 # person | organisation
-#     contact_email: owner@example.com
-#   administrator_email: admin@example.com
-#   data_sources:                        # external_ids of datasources belonging to this site
-#     - "63d256e02c254c0009f4f4ac"
-#     - "63d3a275034c250009b0d526"
-#     - "63d2576863f95b00090251cf"
-#     - "63d257e4d29ad6000aef2c8c"
-#     - "63d25457d29ad6000aeee00c"
-#     - "63d259632c254c0009f52f40"
-#     - "1737"
-#     - "NE=146462613"
-#     - "openmeteo_forecast"
+  lk_farm:
+    name: "LK Dairy Farm"
+    location:
+      type: Point
+      coordinates: [33.4126347, 35.0213149]  # [longitude, latitude]
+    site_type: dairy_farm
+    owner:
+      name: "Demo Organisation"
+      type: organisation
+      contact_email: owner@example.com
+    administrator_email: admin@example.com
+    data_sources:
+      - "68fbe8f50ad75e000a4d2158"
+      - "68fbe8f5374f09000ac4bbe1"
+      - "68fbe8f56fe6f1000adeffcc"
+      - "68fbe8f576b75a000ae1d4dd"
+      - "68fbe8f594138e000a6e9260"
+      - "6902200ea4feb40009ef39b8"
+      - "68fbe8f5eb5462000945a324"
+      - "68fbed1b76b75a000ae2401a"
+      - lelyna
+      - "1236"
+      - "1741"
+      - "1743"
+      - openmeteo_forecast
+
+  charalambides:
+    name: "Charalambides Factory"
+    location:
+      type: Point
+      coordinates: [33.4126347, 35.0213149]  # [longitude, latitude]
+    site_type: factory
+    owner:
+      name: "Demo Organisation"
+      type: organisation
+      contact_email: owner@example.com
+    administrator_email: admin@example.com
+    data_sources:
+      - "63d256e02c254c0009f4f4ac"
+      - "63d3a275034c250009b0d526"
+      - "63d2576863f95b00090251cf"
+      - "63d257e4d29ad6000aef2c8c"
+      - "63d25457d29ad6000aeee00c"
+      - "63d259632c254c0009f52f40"
+      - "1737"
+      - "NE=146462613"
+      - openmeteo_forecast

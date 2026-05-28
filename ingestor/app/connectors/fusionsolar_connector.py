@@ -44,7 +44,7 @@ GRANULARITY_MAP = {
 
 class FusionSolarConnectorConfig(BaseModel):
     type: str = "fusionsolar"
-    base_url: str = "https://intl.fusionsolar.huawei.com/thirdData"
+    base_url: str = "http://api.example.com"  # Placeholder, should be set to actual FusionSolar API URL
     user_name: str = ""
     system_code: str = ""
     schedule_seconds: int = 3600
