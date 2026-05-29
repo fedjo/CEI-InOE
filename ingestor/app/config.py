@@ -65,7 +65,7 @@ AIRBELD_API_URL = os.environ.get('AIRBELD_API_URL', '')
 AIRBELD_EMAIL = os.environ.get('AIRBELD_EMAIL', '')
 AIRBELD_PASSWORD = os.environ.get('AIRBELD_PASSWORD', '')
 AIRBELD_POLL_INTERVAL = int(os.environ.get('AIRBELD_POLL_INTERVAL', '43200'))  # (43200) 12-hours in seconds
-AIRBELD_LOOKBACK_DAYS = int(os.environ.get('AIRBELD_LOOKBACK_DAYS', '7'))
+AIRBELD_LOOKBACK_DAYS = int(os.environ.get('AIRBELD_LOOKBACK_DAYS', '180'))
 
 
 # ============================================================================
@@ -74,7 +74,8 @@ AIRBELD_LOOKBACK_DAYS = int(os.environ.get('AIRBELD_LOOKBACK_DAYS', '7'))
 
 TAGO_API_URL = os.environ.get('TAGO_API_URL', 'http://api.example.com')
 TAGO_POLL_INTERVAL = int(os.environ.get('TAGO_POLL_INTERVAL', '3600'))  # 1-hour in seconds
-TAGO_LOOKBACK_DAYS = int(os.environ.get('TAGO_LOOKBACK_DAYS', '7'))
+TAGO_LOOKBACK_DAYS = int(os.environ.get('TAGO_LOOKBACK_DAYS', '180'))
+TAGO_DEFAULT_QTY = int(os.environ.get('TAGO_DEFAULT_QTY', '100000'))
 TAGO_ENABLED = os.environ.get('TAGO_ENABLED', 'true').lower() == 'true'
 
 
@@ -153,7 +154,7 @@ CONNECTOR_CONFIGS: Dict[str, Dict[str, Any]] = {
         'base_url': TAGO_API_URL,
         'schedule_seconds': TAGO_POLL_INTERVAL,
         'lookback_days': TAGO_LOOKBACK_DAYS,
-        'default_qty': 1000,
+        'default_qty': TAGO_DEFAULT_QTY,
         'timeout': 30,
         'max_retries': 3,
         'mappings_dir': MAPPINGS_DIR,

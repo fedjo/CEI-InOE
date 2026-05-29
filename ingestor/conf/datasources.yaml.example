@@ -280,3 +280,83 @@ datasources:
       type: Indoors
       isLocked: false
       external_id: "1741"
+
+  - external_id: "1743"
+    source_category: api
+    data_type: weather
+    alias: O-CEI farm TRH 4
+    client: LK Dairy Farm
+    status: offline
+    metadata:
+      type: Indoors
+      isLocked: false
+      external_id: "1743"
+
+# ---- Blue Farm Weather station ----
+  - external_id: "1744"
+    source_category: api
+    data_type: weather
+    alias: O-CEI Farm weather 2
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      type: Outdoors
+      isLocked: false
+      external_id: "1744"
+
+# --- Blue Farm Weather sensors ---
+  - external_id: "1740"
+    source_category: api
+    data_type: weather
+    alias: O-CEI farm TRH 1
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      type: Indoors
+      isLocked: false
+      external_id: "1740"
+
+  - external_id: "1742"
+    source_category: api
+    data_type: weather
+    alias: O-CEI farm TRH 3
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      type: Indoors
+      isLocked: false
+      external_id: "1742"
+
+# ----- Charalambides Weather station ----
+  - external_id: "1737"
+    source_category: api
+    data_type: weather
+    alias: O-CEI Airbeld weather
+    client: Charalambides Embio Factory
+    status: offline
+    metadata:
+      type: Outdoors
+      isLocked: false
+      external_id: "1737"
+
+
+# ---- Solar panels -----
+  - external_id: "NE=146462613"
+    source_category: api
+    data_type: solar
+    alias: "Charalambides PV"
+    client: Charalambides Embio Factory
+    status: offline
+    metadata:
+      station_code: "NE=146462613"  # from get_station_list()
+
+  # --- Weather forecast (Open-Meteo) ---
+  - external_id: "openmeteo_forecast"
+    source_category: api
+    data_type: weather_forecast
+    alias: Open-Meteo weather forecast
+    client: unknown
+    status: offline
+    metadata:
+      provider: open-meteo
+      url: https://api.open-meteo.com
