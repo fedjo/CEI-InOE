@@ -5,8 +5,8 @@
 # Repository Configuration
 # ============================================================================
 cei_inoe_app_dir: /opt/cei-inoe
-cei_inoe_repo_url: git@github.com:fedjo/CEI-InOE.git
-cei_inoe_version: main
+cei_inoe_repo_url: https://github.com/fedjo/CEI-InOE.git
+cei_inoe_version: testing
 
 # ============================================================================
 # Service Ports
@@ -27,11 +27,16 @@ cei_inoe_db_password: "{{ vault_cei_inoe_db_password }}"
 # ============================================================================
 cei_inoe_api_key: "{{ vault_cei_inoe_api_key }}"
 cei_inoe_cors_origins:
-  - http://100.91.188.28:3000
-  - http://100.91.188.28:8000
   - http://localhost:3000
   - http://localhost:5173
   - http://localhost:8080
+
+# ============================================================================
+# Site Configuration
+# ============================================================================
+# Selects which site to activate from ingestor/conf/site_config.yaml.
+# Valid values: blue_farm | lk_farm | charalambides
+cei_inoe_active_site: blue_farm
 
 # ============================================================================
 # Worker Configuration
@@ -63,7 +68,7 @@ cei_inoe_airbeld_api_url: "{{ vault_cei_inoe_airbeld_api_url }}"
 cei_inoe_airbeld_email: "{{ vault_cei_inoe_airbeld_email | default('') }}"
 cei_inoe_airbeld_password: "{{ vault_cei_inoe_airbeld_password | default('') }}"
 cei_inoe_airbeld_poll_interval: 43200
-cei_inoe_airbeld_lookback_days: 7
+cei_inoe_airbeld_lookback_days: 180
 
 # ============================================================================
 # Tago.io Energy API Configuration
@@ -71,7 +76,8 @@ cei_inoe_airbeld_lookback_days: 7
 cei_inoe_tago_api_url: "{{ vault_cei_inoe_tago_api_url }}"
 cei_inoe_tago_enabled: true
 cei_inoe_tago_poll_interval: 3600
-cei_inoe_tago_lookback_days: 7
+cei_inoe_tago_lookback_days: 180
+cei_inoe_tago_default_qty: 100000
 
 # ============================================================================
 # FusionSolar API Configuration
@@ -81,7 +87,7 @@ cei_inoe_fusionsolar_user: "{{ vault_cei_inoe_fusionsolar_user | default('') }}"
 cei_inoe_fusionsolar_system_code: "{{ vault_cei_inoe_fusionsolar_system_code | default('') }}"
 cei_inoe_fusionsolar_enabled: true
 cei_inoe_fusionsolar_poll_interval: 3600
-cei_inoe_fusionsolar_lookback_days: 30
+cei_inoe_fusionsolar_lookback_days: 60
 
 # ============================================================================
 # Open-Meteo Forecast API Configuration

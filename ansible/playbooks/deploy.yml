@@ -2,6 +2,11 @@
 - name: Deploy CEI-InOE to NUC
   hosts: nuc
   become: true
+  gather_facts: true
+
+  vars_files:
+    - ../group_vars/nuc.yml
+    - ../group_vars/nuc/vault.yml
 
   vars:
     docker_apt_arch_map:
@@ -65,26 +70,31 @@
       ansible.builtin.meta: reset_connection
 
     - name: Install Python Docker SDK
-      ansible.builtin.pip:
+      ansible.builtin.apt:
         name:
-          - docker
-          - requests
+          - python3-docker
+          - python3-requests
         state: present
 
   tasks:
-    - name: Create deployment directories
+    - name: Check whether application repository already exists
+      ansible.builtin.stat:
+        path: "{{ cei_inoe_app_dir }}/.git"
+      register: cei_inoe_repo_checkout
+
+    - name: Reset stale application directory before first checkout
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: "{{ cei_inoe_app_dir }}"
+        state: absent
+      when: not cei_inoe_repo_checkout.stat.exists
+
+    - name: Create application directory
+      ansible.builtin.file:
+        path: "{{ cei_inoe_app_dir }}"
         state: directory
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0755"
-      loop:
-        - "{{ cei_inoe_app_dir }}"
-        - "{{ cei_inoe_app_dir }}/data"
-        - "{{ cei_inoe_app_dir }}/data/incoming"
-        - "{{ cei_inoe_app_dir }}/data/processed"
-        - "{{ cei_inoe_app_dir }}/data/rejected"
 
     - name: Checkout application repository
       ansible.builtin.git:
@@ -94,6 +104,19 @@
         update: true
         accept_hostkey: true
       become: false
+
+    - name: Create deployment data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+      loop:
+        - "{{ cei_inoe_app_dir }}/data"
+        - "{{ cei_inoe_app_dir }}/data/incoming"
+        - "{{ cei_inoe_app_dir }}/data/processed"
+        - "{{ cei_inoe_app_dir }}/data/rejected"
 
     - name: Render application environment file
       ansible.builtin.template:
@@ -111,6 +134,11 @@
         group: "{{ ansible_user }}"
         mode: "0644"
 
+    - name: Check whether datasources configuration already exists
+      ansible.builtin.stat:
+        path: "{{ cei_inoe_app_dir }}/ingestor/conf/datasources.yaml"
+      register: cei_inoe_datasources_config
+
     - name: Deploy datasources configuration
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/../../ingestor/conf/datasources.yaml"
@@ -118,6 +146,7 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0600"
+      when: not cei_inoe_datasources_config.stat.exists
 
     - name: Build and start CEI-InOE stack
       community.docker.docker_compose_v2:
