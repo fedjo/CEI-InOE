@@ -341,10 +341,19 @@ datasources:
 
 
 # ---- Solar panels -----
-  - external_id: "NE=146462613"
+  - external_id: "NE=146424540"
     source_category: api
     data_type: solar
-    alias: "Charalambides PV"
+    alias: "Charalambides PV - Neo Ippostatiko"
+    client: Charalambides Embio Factory
+    status: offline
+    metadata:
+      station_code: "NE=146424540"  # from get_station_list()
+
+   - external_id: "NE=146462613"
+    source_category: api
+    data_type: solar
+    alias: "Charalambides PV - Palio Ippostatiko"
     client: Charalambides Embio Factory
     status: offline
     metadata:

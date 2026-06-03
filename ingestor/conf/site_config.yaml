@@ -11,7 +11,7 @@ sites:
     name: "Blue Farm Dairy"
     location:
       type: Point
-      coordinates: [33.4126347, 35.0213149]  # [longitude, latitude]
+      coordinates: [33.4064405, 35.0341770]  # [longitude, latitude]
     site_type: dairy_farm                     # dairy_farm | factory | other
     owner:
       name: "Demo Organisation"
@@ -36,13 +36,13 @@ sites:
     name: "LK Dairy Farm"
     location:
       type: Point
-      coordinates: [33.4126347, 35.0213149]  # [longitude, latitude]
+      coordinates: [33.4101832, 35.047836]  # [longitude, latitude]
     site_type: dairy_farm
     owner:
       name: "Demo Organisation"
       type: organisation
       contact_email: owner@example.com
-    administrator_email: admin@example.com
+    administrator_email: ymar@greensupplychain.eu
     data_sources:
       - "68fbe8f50ad75e000a4d2158"
       - "68fbe8f5374f09000ac4bbe1"
@@ -62,13 +62,13 @@ sites:
     name: "Charalambides Factory"
     location:
       type: Point
-      coordinates: [33.4126347, 35.0213149]  # [longitude, latitude]
+      coordinates: [33.0142174, 34.707716]  # [longitude, latitude]
     site_type: factory
     owner:
       name: "Demo Organisation"
       type: organisation
       contact_email: owner@example.com
-    administrator_email: admin@example.com
+    administrator_email: ymar@greensupplychain.eu
     data_sources:
       - "63d256e02c254c0009f4f4ac"
       - "63d3a275034c250009b0d526"
@@ -77,5 +77,5 @@ sites:
       - "63d25457d29ad6000aeee00c"
       - "63d259632c254c0009f52f40"
       - "1737"
-      - "NE=146462613"
+      - "NE=146424540"
       - openmeteo_forecast
