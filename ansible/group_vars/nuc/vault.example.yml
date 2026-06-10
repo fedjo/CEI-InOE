@@ -1,0 +1,35 @@
+---
+# Copy these keys into vault.yml with:
+# ansible-vault edit group_vars/nuc/vault.yml
+#
+# This example contains placeholders only and is safe to commit.
+
+vault_nuc_ansible_host: "NUC_IP_OR_HOSTNAME"
+vault_nuc_ansible_user: "SSH_USER"
+vault_nuc_ssh_private_key_file: "~/.ssh/PRIVATE_KEY"
+
+vault_cei_inoe_db_password: "CHANGE_ME"
+vault_cei_inoe_api_key: "CHANGE_ME"
+vault_cei_inoe_cors_origins:
+  - "http://NUC_IP:3000"
+  - "http://NUC_IP:8000"
+  - "http://localhost:3000"
+  - "http://localhost:5173"
+  - "http://localhost:8080"
+vault_cei_inoe_active_site: "SITE_NAME"
+
+vault_cei_inoe_energy_api_url: "https://ENERGY_API"
+vault_cei_inoe_energy_api_key: "CHANGE_ME"
+
+vault_cei_inoe_airbeld_api_url: "https://AIRBELD_API"
+vault_cei_inoe_airbeld_email: "CHANGE_ME"
+vault_cei_inoe_airbeld_password: "CHANGE_ME"
+
+vault_cei_inoe_tago_api_url: "https://TAGO_API"
+
+vault_cei_inoe_fusionsolar_api_url: "https://FUSIONSOLAR_API"
+vault_cei_inoe_fusionsolar_user: "CHANGE_ME"
+vault_cei_inoe_fusionsolar_system_code: "CHANGE_ME"
+
+vault_cei_inoe_openmeteo_latitude: "CHANGE_ME"
+vault_cei_inoe_openmeteo_longitude: "CHANGE_ME"
