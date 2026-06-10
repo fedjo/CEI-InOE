@@ -17,6 +17,7 @@ router = APIRouter()
 async def get_dairy_production(
     start_date: date | None = Query(None, description="Start date (inclusive)"),
     end_date: date | None = Query(None, description="End date (inclusive)"),
+    datasource_id: int = Query(..., description="Filter by datasource ID"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(
         settings.default_page_size, 
@@ -41,6 +42,7 @@ async def get_dairy_production(
         db=db,
         start_date=start_date,
         end_date=end_date,
+        datasource_id=datasource_id,
         page=page,
         page_size=page_size
     )
@@ -55,11 +57,14 @@ async def get_dairy_production(
 
 
 @router.get("/latest", response_model=DairyProductionRead)
-async def get_latest_dairy(db: Session = Depends(get_db)):
+async def get_latest_dairy(
+    datasource_id: int = Query(..., description="Filter by datasource ID"),
+    db: Session = Depends(get_db),
+):
     """
     Get the most recent dairy production record.
     """
-    record = dairy_queries.get_latest(db)
+    record = dairy_queries.get_latest(db, datasource_id)
     
     if not record:
         raise HTTPException(status_code=404, detail="No dairy data found")

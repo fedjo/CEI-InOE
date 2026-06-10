@@ -12,6 +12,7 @@ def get_metrics(
     start_date: date,
     end_date: date,
     source_device_id: str | None = None,
+    datasource_id: int | None = None,
     page: int = 1,
     page_size: int = 100
 ) -> tuple[list[EnvironmentalMetrics], int]:
@@ -32,6 +33,9 @@ def get_metrics(
     
     if source_device_id:
         query = query.filter(EnvironmentalMetrics.source_device_id == source_device_id)
+
+    if datasource_id is not None:
+        query = query.filter(EnvironmentalMetrics.datasource_id == datasource_id)
     
     total = query.count()
     
@@ -43,9 +47,14 @@ def get_metrics(
     return records, total
 
 
-def get_latest(db: Session) -> EnvironmentalMetrics | None:
+def get_latest(db: Session, datasource_id: int | None = None) -> EnvironmentalMetrics | None:
     """Get the most recent environmental reading."""
-    return db.query(EnvironmentalMetrics) \
+    query = db.query(EnvironmentalMetrics)
+
+    if datasource_id is not None:
+        query = query.filter(EnvironmentalMetrics.datasource_id == datasource_id)
+
+    return query \
         .order_by(EnvironmentalMetrics.timestamp.desc()) \
         .first()
 

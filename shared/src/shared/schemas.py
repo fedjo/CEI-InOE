@@ -180,6 +180,7 @@ class EnergyHourlyRead(EnergyHourlyBase):
     source_type: str
     source_batch_id: Optional[UUID] = None
     source_device_id: Optional[str] = None
+    datasource_id: Optional[int] = None
     ingested_at: Optional[datetime] = None
 
 
@@ -197,6 +198,7 @@ class EnergyDailyRead(EnergyDailyBase):
     source_type: str
     source_batch_id: Optional[UUID] = None
     source_device_id: Optional[str] = None
+    datasource_id: Optional[int] = None
     ingested_at: Optional[datetime] = None
 
 
@@ -226,6 +228,7 @@ class EnvironmentalMetricsRead(EnvironmentalMetricsBase):
     source_type: str
     source_batch_id: Optional[UUID] = None
     source_device_id: Optional[str] = None
+    datasource_id: Optional[int] = None
     ingested_at: Optional[datetime] = None
 
 
@@ -267,6 +270,7 @@ class DairyProductionRead(DairyProductionBase):
     source_type: str
     source_batch_id: Optional[UUID] = None
     source_device_id: Optional[str] = None
+    datasource_id: Optional[int] = None
     ingested_at: Optional[datetime] = None
 
 

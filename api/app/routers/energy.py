@@ -17,7 +17,7 @@ router = APIRouter()
 async def get_hourly_energy(
     start_date: date = Query(..., description="Start date (inclusive)"),
     end_date: date = Query(..., description="End date (inclusive)"),
-    datasource_id: int | None = Query(None, description="Filter by datasource ID"),
+    datasource_id: int = Query(..., description="Filter by datasource ID"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(
         settings.default_page_size, 
@@ -60,7 +60,7 @@ async def get_hourly_energy(
 async def get_daily_energy(
     start_date: date = Query(..., description="Start date (inclusive)"),
     end_date: date = Query(..., description="End date (inclusive)"),
-    datasource_id: int | None = Query(None, description="Filter by datasource ID"),
+    datasource_id: int = Query(..., description="Filter by datasource ID"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(
         settings.default_page_size, 
@@ -101,7 +101,7 @@ async def get_daily_energy(
 
 @router.get("/latest", response_model=EnergyHourlyRead)
 async def get_latest_energy(
-    datasource_id: int | None = Query(None, description="Filter by datasource ID"),
+    datasource_id: int = Query(..., description="Filter by datasource ID"),
     db: Session = Depends(get_db),
 ):
     """
