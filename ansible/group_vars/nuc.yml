@@ -26,17 +26,14 @@ cei_inoe_db_password: "{{ vault_cei_inoe_db_password }}"
 # API Configuration
 # ============================================================================
 cei_inoe_api_key: "{{ vault_cei_inoe_api_key }}"
-cei_inoe_cors_origins:
-  - http://localhost:3000
-  - http://localhost:5173
-  - http://localhost:8080
+cei_inoe_cors_origins: "{{ vault_cei_inoe_cors_origins }}"
 
 # ============================================================================
 # Site Configuration
 # ============================================================================
 # Selects which site to activate from ingestor/conf/site_config.yaml.
 # Valid values: blue_farm | lk_farm | charalambides
-cei_inoe_active_site: blue_farm
+cei_inoe_active_site: "{{ vault_cei_inoe_active_site }}"
 
 # ============================================================================
 # Worker Configuration

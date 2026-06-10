@@ -20,12 +20,14 @@ ansible-galaxy collection install -r requirements.yml
 
 ### 2. Configure Inventory
 
-Edit `inventory/hosts.yml` and set the correct IP address and SSH user for your NUC:
+Keep host aliases in `inventory/hosts.yml`. Store the real address, SSH user,
+and private-key path in the encrypted vault:
 
 ```yaml
 cei-nuc-01:
-  ansible_host: 192.168.1.50  # Change to your NUC IP
-  ansible_user: ubuntu         # Change if using different user
+  ansible_host: "{{ vault_nuc_ansible_host }}"
+  ansible_user: "{{ vault_nuc_ansible_user }}"
+  ansible_ssh_private_key_file: "{{ vault_nuc_ssh_private_key_file }}"
 ```
 
 ### 3. Configure Variables
@@ -55,12 +57,22 @@ ansible-vault edit group_vars/nuc/vault.yml
 Required secrets:
 
 ```yaml
+vault_nuc_ansible_host: "192.168.1.50"
+vault_nuc_ansible_user: "ubuntu"
+vault_nuc_ssh_private_key_file: "~/.ssh/id_ed25519"
 vault_cei_inoe_db_password: "secure-db-password"
 vault_cei_inoe_api_key: "secure-api-key"
+vault_cei_inoe_cors_origins:
+  - "http://192.168.1.50:3000"
+  - "http://192.168.1.50:8000"
+vault_cei_inoe_active_site: "your-site"
 vault_cei_inoe_airbeld_email: "your-email@example.com"
 vault_cei_inoe_airbeld_password: "airbeld-password"
 # Add other connector credentials as needed
 ```
+
+Use `examples/vault.example.yml` as the complete key checklist. The
+example contains placeholders only; never put real values in it.
 
 ### 5. Deploy
 
@@ -209,6 +221,9 @@ If services fail to connect to PostgreSQL:
 ## Security Notes
 
 - The `vault.yml` file should always be encrypted with `ansible-vault`
+- Commit encrypted `vault.yml` so authorized machines receive it through Git
+- Share the vault password through a password manager, never through Git
+- Never commit an Ansible vault-password file or an SSH private key
 - Never commit unencrypted secrets to version control
 - Change default passwords before production deployment
 - Consider restricting PostgreSQL port to localhost only
