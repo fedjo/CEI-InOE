@@ -14,8 +14,6 @@ from app.config import settings
 
 from shared import (
     DatasourceRead, 
-    DatasourceCreate,
-    DatasourceUpdate,
     DatasourceTypeCount,
     PaginatedResponse,
 )
@@ -28,6 +26,7 @@ async def get_datasources(
     data_type: str | None = Query(None, description="Filter by data type (energy, weather, dairy, pv)"),
     source_category: str | None = Query(None, description="Filter by source category (device, file, api)"),
     status: str | None = Query(None, description="Filter by status"),
+    site_id: int | None = Query(None, description="Filter by site ID"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(
         settings.default_page_size, 
@@ -47,6 +46,7 @@ async def get_datasources(
         data_type=data_type,
         source_category=source_category,
         status=status,
+        site_id=site_id,
         page=page,
         page_size=page_size
     )
