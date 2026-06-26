@@ -5,8 +5,8 @@ datasources:
     type: postgres
     uid: postgres_default
     access: proxy
-    url: host.docker.internal:5432
-    database: ocei4
+    url: postgres:5432
+    database: ocei
     user: ocei
     isDefault: true
     editable: true
