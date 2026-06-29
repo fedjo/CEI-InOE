@@ -8,7 +8,7 @@ import logging
 from app.config import settings, get_cors_origins
 from app.auth import verify_api_key
 from shared.database import get_engine, close_engine
-from app.routers import health, energy, environmental, dairy, datasources, batches, forecast
+from app.routers import health, energy, environmental, dairy, datasources, batches, forecast, sites
 
 # Configure logging
 logging.basicConfig(
@@ -23,6 +23,8 @@ async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup
     logger.info("Starting CEI-InOE Data API...")
+    if not settings.api_key:
+        raise RuntimeError("API_KEY environment variable is not set. The API cannot start without it.")
     try:
         get_engine()  # Initialize connection pool
         logger.info("Database connection pool initialized")
@@ -100,6 +102,13 @@ app.include_router(
     datasources.router, 
     prefix="/api/v1/datasources", 
     tags=["Datasources"],
+    dependencies=[Depends(verify_api_key)],
+)
+
+app.include_router(
+    sites.router,
+    prefix="/api/v1/sites",
+    tags=["Sites"],
     dependencies=[Depends(verify_api_key)],
 )
 

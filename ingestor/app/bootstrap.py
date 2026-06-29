@@ -122,11 +122,16 @@ def _upsert_site(session, cfg: dict) -> Site:
 # Public entry point
 # ============================================================================
 
-def bootstrap_from_conf(conf_dir: str) -> None:
+def bootstrap_from_conf(conf_dir: str, active_site: str = "") -> None:
     """
     Load datasources.yaml and site_config.yaml from *conf_dir* and upsert
     into the database.  Datasources are loaded first so that site linking
     can resolve external_ids immediately.
+
+    *active_site* selects which key under ``sites:`` in site_config.yaml is
+    activated (datasources linked and set to 'online').  Comes from the
+    ACTIVE_SITE environment variable.  If empty or unknown, datasources are
+    still seeded but no site is activated.
     """
     conf = Path(conf_dir)
     if not conf.is_dir():
@@ -148,10 +153,21 @@ def bootstrap_from_conf(conf_dir: str) -> None:
         site_path = conf / "site_config.yaml"
         if site_path.exists():
             data = _load_yaml(site_path)
-            site_cfg = data.get("site")
-            if site_cfg:
-                _upsert_site(session, site_cfg)
+            sites = data.get("sites", {})
+
+            if not active_site:
+                logger.warning(
+                    "ACTIVE_SITE is not set — datasources seeded but no site activated. "
+                    "Valid values: %s", list(sites.keys())
+                )
+            elif active_site not in sites:
+                logger.error(
+                    "ACTIVE_SITE='%s' not found in site_config.yaml. "
+                    "Valid values: %s", active_site, list(sites.keys())
+                )
             else:
-                logger.warning("site_config.yaml has no 'site' key — skipping")
+                site_cfg = sites[active_site]
+                _upsert_site(session, site_cfg)
+                logger.info("Activated site '%s'", active_site)
         else:
             logger.info("No site_config.yaml in %s — skipping", conf_dir)

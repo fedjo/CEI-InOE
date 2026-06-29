@@ -78,6 +78,17 @@ data/
 # CSV, Excel files
 *.csv
 *.xlsx
+
+# Runtime config with secrets (use *.example as template)
+ingestor/conf/datasources.yaml
+
+# Ansible Vault files are committed only in encrypted form.
+# Never add vault password files to version control.
+ansible/.vault-password
+ansible/.vault-password.*
+
+# Local deployment notes
+deploy.md
 *.xls
 
 # Misc
@@ -106,3 +117,4 @@ __pypackages__/
 grafana-*
 grafana-dashboards*
 .github/copilot-instructions.md
+ansible/group_vars/nuc/vault.yml

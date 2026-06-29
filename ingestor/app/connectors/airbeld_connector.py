@@ -24,7 +24,7 @@ class AirbeldConnectorConfig(BaseModel):
     email: str = ""
     password: str = ""
     schedule_seconds: int = 3600
-    lookback_days: int = 7
+    lookback_days: int = 180
     timeout: int = 30
     max_retries: int = 3
     enabled: bool = True

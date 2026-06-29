@@ -18,6 +18,7 @@ async def get_environmental_metrics(
     start_date: date = Query(..., description="Start date (inclusive)"),
     end_date: date = Query(..., description="End date (inclusive)"),
     source_device_id: str | None = Query(None, description="Filter by source device ID"),
+    datasource_id: int = Query(..., description="Filter by datasource ID"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(
         settings.default_page_size, 
@@ -43,6 +44,7 @@ async def get_environmental_metrics(
         start_date=start_date,
         end_date=end_date,
         source_device_id=source_device_id,
+        datasource_id=datasource_id,
         page=page,
         page_size=page_size
     )
@@ -57,11 +59,14 @@ async def get_environmental_metrics(
 
 
 @router.get("/latest", response_model=EnvironmentalMetricsRead)
-async def get_latest_environmental(db: Session = Depends(get_db)):
+async def get_latest_environmental(
+    datasource_id: int = Query(..., description="Filter by datasource ID"),
+    db: Session = Depends(get_db),
+):
     """
     Get the most recent environmental reading.
     """
-    record = env_queries.get_latest(db)
+    record = env_queries.get_latest(db, datasource_id)
     
     if not record:
         raise HTTPException(status_code=404, detail="No environmental data found")

@@ -15,6 +15,7 @@ def get_datasources(
     data_type: str | None = None,
     source_category: str | None = None,
     status: str | None = None,
+    site_id: int | None = None,
     page: int = 1,
     page_size: int = 100
 ) -> tuple[list[Datasource], int]:
@@ -34,6 +35,9 @@ def get_datasources(
     
     if status:
         query = query.filter(Datasource.status == status)
+
+    if site_id is not None:
+        query = query.filter(Datasource.site_id == site_id)
     
     # Get total count
     total = query.count()

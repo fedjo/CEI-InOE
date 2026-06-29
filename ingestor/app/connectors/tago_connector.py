@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 class TagoConnectorConfig(BaseModel):
     """Configuration for Tago.io connector."""
     type: str = "tago"
-    base_url: str = "https://api.tago.io"
+    base_url: str = "http://api.example.com"  # Placeholder, not used directly since endpoints are dynamic
     schedule_seconds: int = 3600  # Default: fetch every hour
-    lookback_days: int = 7  # Default lookback if no cursor exists
-    default_qty: int = 1000  # Max records per request
+    lookback_days: int = 180  # Default lookback if no cursor exists
+    default_qty: int = 100000  # Max records per request
     timeout: int = 30
     max_retries: int = 3
     enabled: bool = True
@@ -40,7 +40,7 @@ class TagoConnector(HttpConnector):
     - Transforms Tago.io response to energy records
     
     API Format:
-        GET https://api.tago.io/data?start_date=...&end_date=...&qty=1000&variables=hourly_consumption
+        GET https://api.tago.io/data?start_date=...&end_date=...&qty=100000&variables=hourly_consumption
         Header: device-token: <token>
     
     Response:

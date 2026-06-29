@@ -11,6 +11,7 @@ def get_production(
     db: Session,
     start_date: date | None = None,
     end_date: date | None = None,
+    datasource_id: int | None = None,
     page: int = 1,
     page_size: int = 100
 ) -> tuple[list[DairyProduction], int]:
@@ -27,6 +28,9 @@ def get_production(
     
     if end_date:
         query = query.filter(DairyProduction.production_date <= end_date)
+
+    if datasource_id is not None:
+        query = query.filter(DairyProduction.datasource_id == datasource_id)
     
     total = query.count()
     
@@ -38,9 +42,14 @@ def get_production(
     return records, total
 
 
-def get_latest(db: Session) -> DairyProduction | None:
+def get_latest(db: Session, datasource_id: int | None = None) -> DairyProduction | None:
     """Get the most recent dairy production record."""
-    return db.query(DairyProduction) \
+    query = db.query(DairyProduction)
+
+    if datasource_id is not None:
+        query = query.filter(DairyProduction.datasource_id == datasource_id)
+
+    return query \
         .order_by(DairyProduction.production_date.desc()) \
         .first()
 
