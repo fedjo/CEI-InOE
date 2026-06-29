@@ -1,0 +1,86 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  # pull_request:
+  #   branches:
+  #     - main
+  #     - testing
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build and push (e.g. testing)'
+        required: false
+        default: 'testing'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_ORG: ${{ github.repository_owner }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            dockerfile: api/Dockerfile
+            context: .
+          - service: ingestor
+            dockerfile: ingestor/Dockerfile
+            context: .
+          - service: migrations
+            dockerfile: Dockerfile.migrations
+            context: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.IMAGE_ORG }}/cei-inoe-${{ matrix.service }}
+          tags: |
+            # branch name on push to main (:main) or manual dispatch (:testing)
+            type=ref,event=branch
+            # full semver for version tags (e.g. :v1.0.0-beta, :v1.2.3)
+            type=semver,pattern={{version}}
+            # major.minor tag for stable releases (e.g. :1.2)
+            type=semver,pattern={{major}}.{{minor}}
+            # :latest only on main
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # GHA layer cache scoped per service — keeps api/ingestor/migrations caches isolated
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}

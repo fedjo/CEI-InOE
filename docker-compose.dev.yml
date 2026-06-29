@@ -1,0 +1,107 @@
+# docker-compose.dev.yml — local development: builds images from source
+# Usage: docker compose -f docker-compose.dev.yml up --build
+
+services:
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${DB_NAME:-ocei}
+      POSTGRES_USER: ${DB_USER:-ocei}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ocei}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ocei} -d ${DB_NAME:-ocei}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrations
+    env_file:
+      - .env
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-ocei}
+      DB_USER: ${DB_USER:-ocei}
+      DB_PASSWORD: ${DB_PASSWORD:-ocei}
+    volumes:
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+      - ./shared:/app/shared
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: alembic upgrade head
+
+  ingestor:
+    build:
+      context: .
+      dockerfile: ingestor/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-ocei}
+      DB_USER: ${DB_USER:-ocei}
+      DB_PASSWORD: ${DB_PASSWORD:-ocei}
+    volumes:
+      - ./data:/data
+      - ./ingestor/app:/app/ingestor/app   # hot-reload source
+      - ./shared:/app/shared
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-ocei}
+      DB_USER: ${DB_USER:-ocei}
+      DB_PASSWORD: ${DB_PASSWORD:-ocei}
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:5173,http://localhost:8080"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api/app:/app/api/app             # hot-reload source
+      - ./shared:/app/shared
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  grafana-data:
