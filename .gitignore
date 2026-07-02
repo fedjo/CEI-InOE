@@ -75,6 +75,10 @@ docker-compose.override.yml
 # Data volumes
 data/
 
+# DB dump files
+*.sql
+*.dump
+
 # CSV, Excel files
 *.csv
 *.xlsx
@@ -118,3 +122,7 @@ grafana-*
 grafana-dashboards*
 .github/copilot-instructions.md
 ansible/group_vars/nuc/vault.yml
+
+# Documents
+*.docx
+*.pdf
