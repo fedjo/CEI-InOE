@@ -482,3 +482,23 @@ class HealthResponse(BaseModel):
     status: str
     database: bool
     timestamp: datetime
+
+
+# =============================================================================
+# Data Upload Schemas
+# =============================================================================
+
+class DataUploadRequest(BaseModel):
+    """Schema for data upload form submission (non-file fields)."""
+    field1: Optional[str] = Field(None, description="Placeholder field 1")
+    field2: Optional[str] = Field(None, description="Placeholder field 2")
+
+
+class DataUploadResponse(BaseModel):
+    """Response after successful data upload."""
+    success: bool
+    message: str
+    batch_id: Optional[UUID] = None
+    filename: Optional[str] = None
+    file_size_bytes: Optional[int] = None
+    fields: Optional[dict[str, Any]] = None

@@ -56,6 +56,8 @@ from shared.schemas import (
     WeatherForecastRead,
     PaginatedResponse,
     HealthResponse,
+    DataUploadRequest,
+    DataUploadResponse,
 )
 
 from shared.database import (
@@ -121,6 +123,8 @@ __all__ = [
     "WeatherForecastRead",
     "PaginatedResponse",
     "HealthResponse",
+    "DataUploadRequest",
+    "DataUploadResponse",
     # Database utilities
     "get_engine",
     "close_engine",

@@ -2,13 +2,15 @@
 
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
+from pathlib import Path
 import logging
 
 from app.config import settings, get_cors_origins
 from app.auth import verify_api_key
 from shared.database import get_engine, close_engine
-from app.routers import health, energy, environmental, dairy, datasources, batches, forecast, sites, solar
+from app.routers import health, energy, environmental, dairy, datasources, batches, forecast, sites, solar, upload
 
 # Configure logging
 logging.basicConfig(
@@ -132,6 +134,25 @@ app.include_router(
     tags=["Solar"],
     dependencies=[Depends(verify_api_key)],
 )
+
+app.include_router(
+    upload.router,
+    prefix="/api/v1/upload",
+    tags=["Upload"],
+    dependencies=[Depends(verify_api_key)],
+)
+
+
+@app.get("/upload-form")
+async def serve_upload_form():
+    """
+    Serve the data upload form HTML page.
+    
+    This is a public route (no auth required) for easy access during development.
+    In production, you may want to add authentication.
+    """
+    html_path = Path(__file__).parent / "templates" / "upload_form.html"
+    return FileResponse(html_path, media_type="text/html")
 
 
 @app.get("/")

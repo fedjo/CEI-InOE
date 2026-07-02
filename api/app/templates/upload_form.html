@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEI-InOE Data Upload</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        input[type="text"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-input-wrapper input[type="file"] {
+            cursor: pointer;
+        }
+        
+        .file-input-wrapper input[type="file"]::file-selector-button {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-right: 10px;
+            transition: background 0.3s ease;
+        }
+        
+        .file-input-wrapper input[type="file"]::file-selector-button:hover {
+            background: #5568d3;
+        }
+        
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        button[type="submit"]:active {
+            transform: translateY(0);
+        }
+        
+        button[type="submit"]:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .message.show {
+            display: block;
+        }
+        
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 12px 16px;
+            margin-bottom: 24px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #555;
+        }
+        
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading .spinner {
+            display: block;
+        }
+        
+        .loading .button-text {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Data Upload Form</h1>
+        <p class="subtitle">CEI-InOE Platform - Upload and update data</p>
+        
+        <div class="info-box">
+            ℹ️ This is a skeleton implementation. Upload an Excel/CSV file with placeholder fields. The file will be stored and tracked, but not yet processed.
+        </div>
+        
+        <div id="message" class="message"></div>
+        
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">📎 Excel File *</label>
+                <div class="file-input-wrapper">
+                    <input type="file" id="file" name="file" accept=".xlsx,.xls,.csv" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="field1">Field 1 (Placeholder)</label>
+                <input type="text" id="field1" name="field1" placeholder="Enter placeholder data...">
+            </div>
+            
+            <div class="form-group">
+                <label for="field2">Field 2 (Placeholder)</label>
+                <input type="text" id="field2" name="field2" placeholder="Enter placeholder data...">
+            </div>
+            
+            <button type="submit" id="submitBtn">
+                <span class="button-text">Upload Data</span>
+                <div class="spinner"></div>
+            </button>
+        </form>
+    </div>
+    
+    <script>
+        const form = document.getElementById('uploadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const messageDiv = document.getElementById('message');
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.classList.add('loading');
+            messageDiv.className = 'message';
+            messageDiv.textContent = '';
+            
+            // Prepare form data
+            const formData = new FormData(form);
+            
+            try {
+                // Get API key from environment or prompt (for demo, we'll try without it first)
+                const response = await fetch('/api/v1/upload/data', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        // Note: In production, you'd need to handle API key authentication
+                        // For now, this endpoint might need to bypass auth or use a different mechanism
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    messageDiv.className = 'message success show';
+                    messageDiv.innerHTML = `
+                        <strong>✓ Success!</strong><br>
+                        ${data.message}<br>
+                        <small>Batch ID: ${data.batch_id}</small><br>
+                        <small>File: ${data.filename} (${(data.file_size_bytes / 1024).toFixed(2)} KB)</small>
+                    `;
+                    form.reset();
+                } else {
+                    throw new Error(data.detail || data.message || 'Upload failed');
+                }
+            } catch (error) {
+                messageDiv.className = 'message error show';
+                messageDiv.innerHTML = `
+                    <strong>✗ Error</strong><br>
+                    ${error.message}
+                `;
+            } finally {
+                // Reset loading state
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('loading');
+            }
+        });
+        
+        // File input change handler to show selected file
+        document.getElementById('file').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                console.log('Selected file:', file.name, file.size, 'bytes');
+            }
+        });
+    </script>
+</body>
+</html>
