@@ -1,0 +1,17 @@
+[Unit]
+Description=Sync DelavalShare files to ingestor incoming directory
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Optional environment overrides file.
+EnvironmentFile=-/etc/default/delavalshare-sync
+ExecStart=/usr/local/bin/sync_delavalshare_to_incoming.sh
+
+# Hardening (keep writable paths explicit for lock/tmp behavior).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=false
+ReadWritePaths=/tmp /data /home/ocei-inoe-admin/DelavalShare

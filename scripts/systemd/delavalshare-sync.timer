@@ -1,0 +1,10 @@
+[Unit]
+Description=Run DelavalShare sync daily at 23:45
+
+[Timer]
+OnCalendar=*-*-* 23:45:00
+Persistent=true
+Unit=delavalshare-sync.service
+
+[Install]
+WantedBy=timers.target
