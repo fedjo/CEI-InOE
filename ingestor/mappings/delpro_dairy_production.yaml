@@ -1,0 +1,62 @@
+# OCEI Milking Export → dairy_production Mapping
+#
+# This mapping handles OCEI milking parlour exports after preprocessing
+# by ocei_milking.py.
+#
+# The preprocessor extracts daily totals from today's three milking sessions
+# and normalizes columns to:
+# - Date: YYYY-MM-DD (system current date)
+# - Day production/cow (kg): float (average milk per active cow)
+# - Nr. animals: int (count of cows with all three today sessions present)
+
+dataset: dairy_production
+granularity: daily
+
+# Column mapping: preprocessor output → database column
+columns:
+  "Date": production_date
+  "Day production/cow (kg)": day_production_per_cow_kg
+  "Nr. animals": number_of_animals
+
+# Type coercions
+coercions:
+  production_date: date
+  day_production_per_cow_kg: float
+  number_of_animals: int
+
+# Primary key for deduplication
+primary_key:
+  - production_date
+
+# Validation Rules
+validation_rules:
+  schema:
+    required:
+      - production_date
+      - number_of_animals
+  
+  constraints:
+    day_production_per_cow_kg:
+      min: 0
+      max: 100
+    number_of_animals:
+      min: 1
+      max: 10000
+
+# Conflict Resolution Strategy
+# Update existing records when datasource + date match
+conflict_resolution:
+  strategy: update
+  on_columns:
+    - datasource_id
+    - production_date
+  update_columns:
+    - day_production_per_cow_kg
+    - number_of_animals
+
+# Target Configuration
+target_table: dairy_production
+staging_table: staging_dairy_production
+
+# Preprocessor configuration
+preprocessor: ocei_milking

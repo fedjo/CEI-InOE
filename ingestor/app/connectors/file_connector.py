@@ -14,8 +14,9 @@ import pandas as pd
 from pydantic import BaseModel
 
 from models import SourceType
-from preprocessors import preprocess_delaval
+from preprocessors import preprocess_delaval, preprocess_delpro_milking
 from preprocessors.delaval import is_delaval_format
+from ingestor.app.preprocessors.delpro import is_delpro_format
 
 from .base import BaseConnector, ConnectorStatus, InputEnvelope
 
@@ -213,6 +214,12 @@ class FileConnector(BaseConnector):
                 logger.info(f"[{self.connector_id}] Applying Delaval preprocessor")
                 raw_records = df.to_dict('records')
                 return preprocess_delaval(raw_records)
+            
+            # Check if DelPro milking format and apply preprocessor
+            if preprocessor == 'delpro_milking' or is_delpro_format(list(df.columns)):
+                logger.info(f"[{self.connector_id}] Applying DelPro milking preprocessor")
+                raw_records = df.to_dict('records')
+                return preprocess_delpro_milking(raw_records)
 
             # Remove summary rows
             if 'Date' in df.columns:
@@ -265,8 +272,12 @@ class FileConnector(BaseConnector):
             cols = {c.lower() for c in df.columns}
             
             # Detect by columns
-            # Check for Delaval format FIRST (before generic dairy)
-            if is_delaval_format(list(df.columns)):
+            # Check for OCEI milking format FIRST (most specific)
+            if is_delpro_format(list(df.columns)):
+                mapping = 'delpro_milking_dairy_production'
+                datasource_ext_id = 'delpro'
+            # Check for Delaval format (before generic dairy)
+            elif is_delaval_format(list(df.columns)):
                 mapping = 'delaval_dairy_production'
                 datasource_ext_id = 'delaval'
                 # Extract parlour name from filename if present
