@@ -272,8 +272,10 @@ class FileConnector(BaseConnector):
         fname = os.path.basename(path)
 
         try:
-            if content_type == "excel":
-                df = pd.read_excel(path, nrows=5)
+            if content_type == SourceType.EXCEL:
+                df = pd.read_excel(path, engine='openpyxl', nrows=5)
+            elif content_type == SourceType.XLS:
+                df = pd.read_excel(path, engine='xlrd', nrows=5)
             else:
                 df = pd.read_csv(path, nrows=5, encoding='utf-8-sig')
 
