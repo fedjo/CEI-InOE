@@ -59,4 +59,4 @@ target_table: dairy_production
 staging_table: staging_dairy_production
 
 # Preprocessor configuration
-preprocessor: ocei_milking
+preprocessor: delpro

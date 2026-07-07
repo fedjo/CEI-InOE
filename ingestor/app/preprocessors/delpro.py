@@ -60,14 +60,14 @@ def is_delpro_format(columns: List[str]) -> bool:
     """
     if not columns or len(columns) < 7:
         return False
-    
+
     col_lower = [str(c).lower().strip() for c in columns]
     
     # Check for required columns
-    has_cow_no = 'cow no' in col_lower or 'cow_no' in col_lower
-    has_milk_today = any('milk' in c and 'today' in c for c in col_lower)
-    has_milk_yesterday = any('milk' in c and 'yesterday' in c for c in col_lower)
-    
+    has_cow_no = '300001' in col_lower
+    has_milk_today = '300130' in col_lower
+    has_milk_yesterday = '300142' in col_lower
+
     return has_cow_no and has_milk_today and has_milk_yesterday
 
 
@@ -104,8 +104,9 @@ def preprocess_delpro_milking(
     # Detect column indices
     first_row = raw_content[0]
     columns = list(first_row.keys())
-    
+
     col_map = _build_column_map(columns)
+
     if not col_map:
         logger.error("Could not identify DelPro milking column structure")
         return []
@@ -116,20 +117,21 @@ def preprocess_delpro_milking(
     
     for row in raw_content:
         # Skip header and trailer rows
-        cow_id = str(row.get(columns[col_map['cow_no']], '')).strip()
+        cow_id = str(row.get(columns[col_map['300001']], '')).strip()
         if not cow_id or cow_id.upper() in ('COW NO', 'ZN', ''):
             continue
         
         # Extract today's three milk sessions
-        milk_1 = parse_float(row.get(columns[col_map['milk_1_today']]))
-        milk_2 = parse_float(row.get(columns[col_map['milk_2_today']]))
-        milk_3 = parse_float(row.get(columns[col_map['milk_3_today']]))
+        milk_1 = parse_float(row.get(columns[col_map['300130']]))
+        milk_2 = parse_float(row.get(columns[col_map['300133']]))
+        milk_3 = parse_float(row.get(columns[col_map['300136']]))
         
         # Active cow must have all three today sessions present
         if milk_1 is not None and milk_2 is not None and milk_3 is not None:
             active_cow_count += 1
             total_milk_today += milk_1 + milk_2 + milk_3
-    
+
+
     # Return empty if no active cows (would fail validation anyway)
     if active_cow_count == 0:
         logger.warning(
@@ -160,35 +162,35 @@ def _build_column_map(columns: List[str]) -> Dict[str, int]:
     Build a map of semantic column names to indices.
     
     Expected columns:
-    0: Cow no
-    1: Milk 1 today
-    2: Milk 2 today
-    3: Milk 3 today
-    4: Milk 1 yesterday
-    5: Milk 2 yesterday
-    6: Milk 3 yesterday
+    0: 300001 (Cow no)
+    1: 300130 (Milk 1 today)
+    2: 300133 (Milk 2 today)
+    3: 300136 (Milk 3 today)
+    4: 300142 (Milk 1 yesterday)
+    5: 300145 (Milk 2 yesterday)
+    6: 300148 (Milk 3 yesterday)
     7+: Duration columns (optional)
     """
     col_map = {}
     
     for i, col in enumerate(columns):
         col_lower = str(col).lower().strip()
-        
-        if 'cow' in col_lower and 'no' in col_lower:
-            col_map['cow_no'] = i
-        elif 'milk 1' in col_lower and 'today' in col_lower:
-            col_map['milk_1_today'] = i
-        elif 'milk 2' in col_lower and 'today' in col_lower:
-            col_map['milk_2_today'] = i
-        elif 'milk 3' in col_lower and 'today' in col_lower:
-            col_map['milk_3_today'] = i
+
+        if '300001' in col_lower:
+            col_map['300001'] = i
+        elif '300130' in col_lower:
+            col_map['300130'] = i
+        elif '300133' in col_lower:
+            col_map['300133'] = i
+        elif '300136' in col_lower:
+            col_map['300136'] = i
     
     # Validate we have required columns
-    required = ['cow_no', 'milk_1_today', 'milk_2_today', 'milk_3_today']
+    required = ['300001', '300130', '300133', '300136']
     if not all(k in col_map for k in required):
         logger.warning(
             f"Missing required DelPro columns. Found: {list(col_map.keys())}"
         )
         return {}
-    
+
     return col_map

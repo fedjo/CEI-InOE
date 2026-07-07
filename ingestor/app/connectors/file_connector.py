@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from models import SourceType
 from preprocessors import preprocess_delaval, preprocess_delpro_milking
 from preprocessors.delaval import is_delaval_format
-from ingestor.app.preprocessors.delpro import is_delpro_format
+from preprocessors.delpro import is_delpro_format
 
 from .base import BaseConnector, ConnectorStatus, InputEnvelope
 
@@ -108,9 +108,9 @@ class FileConnector(BaseConnector):
             # Detect content type
             ext = os.path.splitext(fname)[1].lower()
             content_type = SourceType.UNKNOWN
-            if ext == 'xls':
+            if ext == '.xls':
                 content_type = SourceType.XLS
-            elif ext == 'xlsx':
+            elif ext == '.xlsx':
                 content_type = SourceType.EXCEL
             else:
                 content_type = SourceType.CSV
@@ -210,7 +210,7 @@ class FileConnector(BaseConnector):
             if content_type == SourceType.EXCEL:
                 df = pd.read_excel(path, engine='openpyxl')
             elif content_type == SourceType.XLS:
-                df = pd.read_excel(path, engine='xlrd')
+                df = pd.read_csv(path, sep='\t')
             else:
                 df = pd.read_csv(path, encoding='utf-8-sig')
 
@@ -275,7 +275,7 @@ class FileConnector(BaseConnector):
             if content_type == SourceType.EXCEL:
                 df = pd.read_excel(path, engine='openpyxl', nrows=5)
             elif content_type == SourceType.XLS:
-                df = pd.read_excel(path, engine='xlrd', nrows=5)
+                df = pd.read_csv(path, sep='\t', nrows=5)
             else:
                 df = pd.read_csv(path, nrows=5, encoding='utf-8-sig')
 
@@ -284,7 +284,7 @@ class FileConnector(BaseConnector):
             # Detect by columns
             # Check for OCEI milking format FIRST (most specific)
             if is_delpro_format(list(df.columns)):
-                mapping = 'delpro_dairy_production.yaml'
+                mapping = 'delpro_dairy_production'
                 datasource_ext_id = 'delpro'
             # Check for Delaval format (before generic dairy)
             elif is_delaval_format(list(df.columns)):
