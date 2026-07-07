@@ -16,6 +16,9 @@ on:
         description: 'Branch to build and push (e.g. testing)'
         required: false
         default: 'testing'
+      tag_name:
+        description: 'Docker image tag to publish on manual runs (e.g. testing-20260707)'
+        required: true
 
 env:
   REGISTRY: ghcr.io
@@ -46,6 +49,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -66,6 +71,8 @@ jobs:
           tags: |
             # branch name on push to main (:main) or manual dispatch (:testing)
             type=ref,event=branch
+            # explicit manual tag for workflow_dispatch
+            type=raw,value=${{ inputs.tag_name }},enable=${{ github.event_name == 'workflow_dispatch' }}
             # full semver for version tags (e.g. :v1.0.0-beta, :v1.2.3)
             type=semver,pattern={{version}}
             # major.minor tag for stable releases (e.g. :1.2)
