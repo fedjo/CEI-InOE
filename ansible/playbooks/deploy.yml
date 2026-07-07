@@ -152,7 +152,7 @@
       community.docker.docker_compose_v2:
         project_src: "{{ cei_inoe_app_dir }}"
         files:
-          - docker-compose.new.yaml
+          - docker-compose.dev.yaml
           - docker-compose.override.yml
         build: always
         remove_orphans: true
