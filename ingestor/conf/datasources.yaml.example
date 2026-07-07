@@ -23,6 +23,14 @@ datasources:
     status: offline
     metadata: {}
 
+  - external_id: delpro
+    source_category: file
+    data_type: milk
+    alias: DelPro Milking Export
+    client: Blue Farm Dairy
+    status: offline
+    metadata: {}
+
   # --- Blue Farm Dairy energy meters (Tago.io API) ---
   - external_id: "68f1fb6550bcae000b4c2501"
     source_category: api
