@@ -282,7 +282,7 @@ class FileConnector(BaseConnector):
             # Detect by columns
             # Check for OCEI milking format FIRST (most specific)
             if is_delpro_format(list(df.columns)):
-                mapping = 'delpro_milking_dairy_production'
+                mapping = 'delpro_dairy_production.yaml'
                 datasource_ext_id = 'delpro'
             # Check for Delaval format (before generic dairy)
             elif is_delaval_format(list(df.columns)):
