@@ -107,7 +107,13 @@ class FileConnector(BaseConnector):
 
             # Detect content type
             ext = os.path.splitext(fname)[1].lower()
-            content_type = SourceType.EXCEL if ext in {'.xlsx', '.xls'} else SourceType.CSV
+            content_type = SourceType.UNKNOWN
+            if ext == 'xls':
+                content_type = SourceType.XLS
+            elif ext == 'xlsx':
+                content_type = SourceType.EXCEL
+            else:
+                content_type = SourceType.CSV
 
             # Read content
             content = self._read_file(path, content_type)
@@ -201,8 +207,10 @@ class FileConnector(BaseConnector):
     def _read_file(self, path: str, content_type: str, preprocessor: Optional[str] = None) -> Optional[List[Dict]]:
         """Read file as list of dicts, optionally applying a preprocessor."""
         try:
-            if content_type == "excel":
-                df = pd.read_excel(path)
+            if content_type == SourceType.EXCEL:
+                df = pd.read_excel(path, engine='openpyxl')
+            elif content_type == SourceType.XLS:
+                df = pd.read_excel(path, engine='xlrd')
             else:
                 df = pd.read_csv(path, encoding='utf-8-sig')
 
