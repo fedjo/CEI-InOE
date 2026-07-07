@@ -43,16 +43,16 @@ while IFS= read -r -d '' file_path; do
     continue
   fi
 
-  if mv -- "$file_path" "$target_path"; then
+  if cp -- "$file_path" "$target_path"; then
     moved_count=$((moved_count + 1))
-    log "Moved: $file_name"
+    log "Copied: $file_name"
   else
     failed_count=$((failed_count + 1))
-    log "Failed to move: $file_name"
+    log "Failed to copy: $file_name"
   fi
 done < <(
   find "$SOURCE_DIR" -maxdepth 1 -type f \( \
-    -iname '*.csv' -o -iname '*.xls' -o -iname '*.xlsx' \
+    -iname 'output.xls' \
   \) -print0
 )
 
