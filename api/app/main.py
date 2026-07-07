@@ -8,7 +8,7 @@ import logging
 from app.config import settings, get_cors_origins
 from app.auth import verify_api_key
 from shared.database import get_engine, close_engine
-from app.routers import health, energy, environmental, dairy, datasources, batches, forecast, sites
+from app.routers import health, energy, environmental, dairy, datasources, batches, forecast, sites, solar
 
 # Configure logging
 logging.basicConfig(
@@ -123,6 +123,13 @@ app.include_router(
     forecast.router,
     prefix="/api/v1/forecast",
     tags=["Forecast"],
+    dependencies=[Depends(verify_api_key)],
+)
+
+app.include_router(
+    solar.router,
+    prefix="/api/v1/solar",
+    tags=["Solar"],
     dependencies=[Depends(verify_api_key)],
 )
 

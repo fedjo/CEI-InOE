@@ -322,6 +322,103 @@ class DataQualityCheckRead(BaseModel):
 
 
 # =============================================================================
+# Solar/PV Schemas
+# =============================================================================
+
+class SolarHourlyBase(BaseModel):
+    """Base schema for hourly solar/PV data."""
+    ts: datetime
+    pv_yield_kwh: Optional[float] = None
+    inverter_yield_kwh: Optional[float] = None
+    inverter_power_kw: Optional[float] = None
+    ongrid_power_kwh: Optional[float] = None
+    buy_power_kwh: Optional[float] = None
+    use_power_kwh: Optional[float] = None
+    self_use_power_kwh: Optional[float] = None
+    self_provide_pct: Optional[float] = None
+    perpower_ratio: Optional[float] = None
+    installed_capacity_kwp: Optional[float] = None
+    power_profit: Optional[float] = None
+    reduction_total_co2: Optional[float] = None
+    reduction_total_coal: Optional[float] = None
+    reduction_total_tree: Optional[float] = None
+
+
+class SolarHourlyRead(SolarHourlyBase):
+    """Schema for reading hourly solar/PV data."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    source_type: str
+    source_batch_id: Optional[UUID] = None
+    source_device_id: Optional[str] = None
+    datasource_id: Optional[int] = None
+    ingested_at: Optional[datetime] = None
+
+
+class SolarDailyBase(BaseModel):
+    """Base schema for daily solar/PV data."""
+    ts: date
+    pv_yield_kwh: Optional[float] = None
+    inverter_yield_kwh: Optional[float] = None
+    inverter_power_kw: Optional[float] = None
+    ongrid_power_kwh: Optional[float] = None
+    buy_power_kwh: Optional[float] = None
+    use_power_kwh: Optional[float] = None
+    self_use_power_kwh: Optional[float] = None
+    self_provide_pct: Optional[float] = None
+    perpower_ratio: Optional[float] = None
+    installed_capacity_kwp: Optional[float] = None
+    power_profit: Optional[float] = None
+    reduction_total_co2: Optional[float] = None
+    reduction_total_coal: Optional[float] = None
+    reduction_total_tree: Optional[float] = None
+
+
+class SolarDailyRead(SolarDailyBase):
+    """Schema for reading daily solar/PV data."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    source_type: str
+    source_batch_id: Optional[UUID] = None
+    source_device_id: Optional[str] = None
+    datasource_id: Optional[int] = None
+    ingested_at: Optional[datetime] = None
+
+
+class SolarMonthlyBase(BaseModel):
+    """Base schema for monthly solar/PV data."""
+    ts: date
+    pv_yield_kwh: Optional[float] = None
+    inverter_yield_kwh: Optional[float] = None
+    inverter_power_kw: Optional[float] = None
+    ongrid_power_kwh: Optional[float] = None
+    buy_power_kwh: Optional[float] = None
+    use_power_kwh: Optional[float] = None
+    self_use_power_kwh: Optional[float] = None
+    self_provide_pct: Optional[float] = None
+    perpower_ratio: Optional[float] = None
+    installed_capacity_kwp: Optional[float] = None
+    power_profit: Optional[float] = None
+    reduction_total_co2: Optional[float] = None
+    reduction_total_coal: Optional[float] = None
+    reduction_total_tree: Optional[float] = None
+
+
+class SolarMonthlyRead(SolarMonthlyBase):
+    """Schema for reading monthly solar/PV data."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    source_type: str
+    source_batch_id: Optional[UUID] = None
+    source_device_id: Optional[str] = None
+    datasource_id: Optional[int] = None
+    ingested_at: Optional[datetime] = None
+
+
+# =============================================================================
 # Weather Forecast Schemas
 # =============================================================================
 
