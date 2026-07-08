@@ -89,7 +89,12 @@ class TagoConnector(HttpConnector):
         """
         Return device endpoint IDs for hourly consumption.
         Format: {device_id}:hourly_consumption
+
+        Datasource list is refreshed from the DB on every call so that
+        additions / status changes made via the API take effect at the
+        next scheduled poll without restarting the ingestor.
         """
+        self._load_datasources()
         endpoints = []
         for ds in self._datasources:
             device_token = ds.get('device_token')
@@ -274,6 +279,10 @@ class TagoConnector(HttpConnector):
             if d['external_id'] == external_id:
                 return d
         return None
+
+    def reload_datasources(self) -> None:
+        """Force an immediate refresh of the in-memory datasource list."""
+        self._load_datasources()
 
     # -------------------------------------------------------------------------
     # Date Range / Cursor Management

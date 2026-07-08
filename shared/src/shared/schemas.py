@@ -116,6 +116,13 @@ class DatasourceTypeCount(BaseModel):
     count: int
 
 
+class PurgeResult(BaseModel):
+    """Result of a hard-delete (purge) operation on a datasource."""
+    datasource_id: int
+    rows_deleted: dict[str, int]
+    purged_at: datetime
+
+
 # =============================================================================
 # IngestBatch Schemas
 # =============================================================================

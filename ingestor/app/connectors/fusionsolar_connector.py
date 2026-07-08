@@ -127,7 +127,12 @@ class FusionSolarConnector(BaseConnector):
         """
         Return work items as {external_id}:{granularity}.
         Clears the API cache so each cycle makes fresh requests.
+
+        Datasource list is refreshed from the DB on every call so that
+        additions / status changes made via the API take effect at the
+        next scheduled poll without restarting the ingestor.
         """
+        self._load_datasources()
         self._api_cache = {}
         items = []
         for ds in self._datasources:
@@ -345,6 +350,11 @@ class FusionSolarConnector(BaseConnector):
             if d['external_id'] == external_id:
                 return d
         return None
+
+    def reload_datasources(self) -> None:
+        """Force an immediate refresh of the in-memory datasource list."""
+        self._load_datasources()
+        self._api_cache = {}
 
     # ── Transform ─────────────────────────────────────────────────
 

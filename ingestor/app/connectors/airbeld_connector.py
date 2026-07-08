@@ -87,7 +87,14 @@ class AirbeldConnector(HttpConnector):
         logger.info(f"[{self.connector_id}] Loaded {len(self._datasources)} weather devices")
 
     def discover(self) -> List[str]:
-        """Return device IDs (not endpoint IDs)."""
+        """
+        Return device IDs (not endpoint IDs).
+
+        Datasource list is refreshed from the DB on every call so that
+        additions / status changes made via the API take effect at the
+        next scheduled poll without restarting the ingestor.
+        """
+        self._load_datasources()
         return [d['external_id'] for d in self._datasources if d.get('external_id')]
 
     def fetch(self, ext_id: str) -> Optional[Any]:
@@ -268,6 +275,10 @@ class AirbeldConnector(HttpConnector):
             if d['external_id'] == external_id:
                 return d
         return None
+
+    def reload_datasources(self) -> None:
+        """Force an immediate refresh of the in-memory datasource list."""
+        self._load_datasources()
 
     # -------------------------------------------------------------------------
     # Helpers / Date Range / Cursor

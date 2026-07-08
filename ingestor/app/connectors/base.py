@@ -104,3 +104,13 @@ class BaseConnector(ABC):
             "status": self.status.value,
             "last_error": self._last_error,
         }
+
+    def reload_datasources(self) -> None:
+        """
+        Force an immediate refresh of the cached datasource list from the DB.
+
+        No-op by default; connectors that maintain an in-memory datasource
+        list (Tago, Airbeld, FusionSolar) override this.  Can be called by
+        IngestorApp if a future admin endpoint needs instant effect.
+        """
+        pass

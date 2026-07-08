@@ -4,10 +4,29 @@ Datasource queries using SQLAlchemy ORM.
 Replaces the old devices.py queries.
 """
 
-from sqlalchemy import func
+from sqlalchemy import func, delete, select
 from sqlalchemy.orm import Session
 
-from shared import Datasource
+from shared import (
+    Datasource,
+    IngestBatch,
+    FactEnergyHourly,
+    FactEnergyDaily,
+    EnvironmentalMetrics,
+    DairyProduction,
+    FactSolarHourly,
+    FactSolarDaily,
+    FactSolarMonthly,
+    ApiFetchCursor,
+    PipelineExecution,
+    DataQualityCheck,
+    StagingEnvironmentalMetrics,
+    StagingEnergyHourly,
+    StagingEnergyDaily,
+    StagingDairyProduction,
+    StagingSolarKpi,
+    StagingWeatherForecast,
+)
 
 
 def get_datasources(
@@ -106,3 +125,82 @@ def update_datasource(db: Session, datasource_id: int, **kwargs) -> Datasource |
     db.commit()
     db.refresh(datasource)
     return datasource
+
+
+def soft_delete_datasource(db: Session, datasource_id: int) -> Datasource | None:
+    """Set datasource status to 'offline'. Returns updated row or None if not found."""
+    return update_datasource(db, datasource_id, status="offline")
+
+
+def purge_datasource(db: Session, datasource_id: int) -> dict[str, int]:
+    """
+    Hard-delete a datasource and ALL related data in one transaction.
+
+    Deletion order respects FK constraints (children before parents).
+    Returns a dict mapping table name → rows deleted.
+    """
+    stats: dict[str, int] = {}
+
+    # 1. Collect batch IDs belonging to this datasource so staging/pipeline
+    #    rows (which FK to ingest_batch, not to datasource) can be cleaned up.
+    batch_ids = db.scalars(
+        select(IngestBatch.batch_id).where(IngestBatch.datasource_id == datasource_id)
+    ).all()
+
+    # 2. Fact tables — direct FK to datasource
+    for Model in (
+        FactEnergyHourly,
+        FactEnergyDaily,
+        EnvironmentalMetrics,
+        DairyProduction,
+        FactSolarHourly,
+        FactSolarDaily,
+        FactSolarMonthly,
+    ):
+        result = db.execute(
+            delete(Model).where(Model.datasource_id == datasource_id)
+        )
+        stats[Model.__tablename__] = result.rowcount
+
+    # 3. Staging tables — FK to ingest_batch
+    if batch_ids:
+        for Model in (
+            StagingEnvironmentalMetrics,
+            StagingEnergyHourly,
+            StagingEnergyDaily,
+            StagingDairyProduction,
+            StagingSolarKpi,
+            StagingWeatherForecast,
+        ):
+            result = db.execute(
+                delete(Model).where(Model.batch_id.in_(batch_ids))
+            )
+            stats[Model.__tablename__] = result.rowcount
+
+        # 4. Pipeline and quality rows — FK to ingest_batch
+        for Model in (PipelineExecution, DataQualityCheck):
+            result = db.execute(
+                delete(Model).where(Model.batch_id.in_(batch_ids))
+            )
+            stats[Model.__tablename__] = result.rowcount
+
+    # 5. API fetch cursors — FK to datasource
+    result = db.execute(
+        delete(ApiFetchCursor).where(ApiFetchCursor.datasource_id == datasource_id)
+    )
+    stats[ApiFetchCursor.__tablename__] = result.rowcount
+
+    # 6. Ingest batches — FK to datasource
+    result = db.execute(
+        delete(IngestBatch).where(IngestBatch.datasource_id == datasource_id)
+    )
+    stats[IngestBatch.__tablename__] = result.rowcount
+
+    # 7. Datasource row — last
+    result = db.execute(
+        delete(Datasource).where(Datasource.id == datasource_id)
+    )
+    stats[Datasource.__tablename__] = result.rowcount
+
+    db.commit()
+    return stats
