@@ -502,3 +502,45 @@ class DataUploadResponse(BaseModel):
     filename: Optional[str] = None
     file_size_bytes: Optional[int] = None
     fields: Optional[dict[str, Any]] = None
+
+
+# =============================================================================
+# Truck Milk Delivery Schemas
+# =============================================================================
+
+class TruckMilkDeliveryBase(BaseModel):
+    reception_date: date = Field(..., description="Date milk was received (DD/MM/YYYY)")
+    truck_id: str = Field(..., min_length=1, max_length=64, description="Truck / vehicle identifier")
+    receipt_number: str = Field(..., min_length=1, max_length=64, description="Receipt number from records")
+    farm_of_origin: str = Field(..., min_length=1, max_length=255, description="Name / identifier of the originating farm")
+    cow_milk_delivered_kg: float = Field(..., gt=0, description="Cow's milk delivered by this trip (kg)")
+    total_cow_milk_in_truck_kg: float = Field(..., gt=0, description="Total cow's milk in truck (kg)")
+    total_milk_in_truck_kg: float = Field(..., gt=0, description="Total milk in truck (all species) (kg)")
+    silo_number: int = Field(..., ge=1, le=2, description="Silo where milk was stored (1 or 2)")
+    production_batch_numbers: Optional[str] = Field(None, description="Comma-separated production batch number(s)")
+    batch_produced_date: Optional[date] = Field(None, description="Date the production batch was produced")
+
+
+class TruckMilkDeliveryCreate(TruckMilkDeliveryBase):
+    pass
+
+
+class TruckMilkDeliveryUpdate(BaseModel):
+    reception_date: Optional[date] = None
+    truck_id: Optional[str] = Field(None, min_length=1, max_length=64)
+    receipt_number: Optional[str] = Field(None, min_length=1, max_length=64)
+    farm_of_origin: Optional[str] = Field(None, min_length=1, max_length=255)
+    cow_milk_delivered_kg: Optional[float] = Field(None, gt=0)
+    total_cow_milk_in_truck_kg: Optional[float] = Field(None, gt=0)
+    total_milk_in_truck_kg: Optional[float] = Field(None, gt=0)
+    silo_number: Optional[int] = Field(None, ge=1, le=2)
+    production_batch_numbers: Optional[str] = None
+    batch_produced_date: Optional[date] = None
+
+
+class TruckMilkDeliveryRead(TruckMilkDeliveryBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

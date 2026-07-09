@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEI-InOE – Truck Milk Delivery</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a6b3c 0%, #2e9e5e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .container {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            max-width: 680px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 { color: #1a3c28; margin-bottom: 6px; font-size: 26px; }
+        .subtitle { color: #666; margin-bottom: 28px; font-size: 13px; }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #1a6b3c;
+            margin: 24px 0 12px;
+            border-bottom: 2px solid #e8f5ee;
+            padding-bottom: 6px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-group { margin-bottom: 16px; }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #333;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        label .required { color: #c0392b; margin-left: 2px; }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #d8e8df;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: #fafffe;
+            color: #222;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #1a6b3c;
+            box-shadow: 0 0 0 3px rgba(26,107,60,0.12);
+            background: #fff;
+        }
+
+        input.invalid, select.invalid, textarea.invalid {
+            border-color: #e74c3c;
+            box-shadow: 0 0 0 3px rgba(231,76,60,0.1);
+        }
+
+        .field-error {
+            font-size: 12px;
+            color: #c0392b;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .field-error.show { display: block; }
+
+        textarea { resize: vertical; min-height: 64px; }
+
+        .hint { font-size: 11px; color: #888; margin-top: 3px; }
+
+        .silo-group { display: flex; gap: 16px; }
+        .silo-option {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 2px solid #d8e8df;
+            border-radius: 8px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .silo-option:hover { border-color: #1a6b3c; background: #f0faf4; }
+        .silo-option input[type="radio"] { width: 16px; height: 16px; accent-color: #1a6b3c; cursor: pointer; }
+        .silo-option label { margin: 0; cursor: pointer; font-weight: 600; }
+        .silo-option.selected { border-color: #1a6b3c; background: #e8f5ee; }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        .message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .message.error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .message.show { display: block; }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #1a6b3c 0%, #2e9e5e 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        button[type="submit"]:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(26,107,60,0.3); }
+        button[type="submit"]:active { transform: translateY(0); }
+        button[type="submit"]:disabled { background: #aaa; cursor: not-allowed; transform: none; }
+
+        .spinner {
+            display: none;
+            width: 18px; height: 18px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading .spinner { display: block; }
+        .loading .button-text { display: none; }
+
+        .api-key-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            align-items: flex-end;
+        }
+        .api-key-row .form-group { flex: 1; margin-bottom: 0; }
+
+        @media (max-width: 520px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🚛 Truck Milk Delivery</h1>
+    <p class="subtitle">CEI-InOE Platform – Record incoming milk deliveries</p>
+
+    <div id="message" class="message"></div>
+
+    <!-- API Key (needed because the endpoint requires auth) -->
+    <div class="api-key-row">
+        <div class="form-group">
+            <label for="apiKey">API Key <span class="required">*</span></label>
+            <input type="text" id="apiKey" placeholder="Enter your API key" autocomplete="off">
+        </div>
+    </div>
+
+    <form id="deliveryForm" novalidate>
+
+        <!-- Reception info -->
+        <div class="section-title">Reception Information</div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label for="reception_date">Date of Reception <span class="required">*</span></label>
+                <input type="date" id="reception_date" name="reception_date" required>
+                <div class="field-error" id="err_reception_date">Please select a reception date.</div>
+            </div>
+            <div class="form-group">
+                <label for="truck_id">Truck / Vehicle Number <span class="required">*</span></label>
+                <input type="text" id="truck_id" name="truck_id" placeholder="e.g. TRK-001" maxlength="64" required>
+                <div class="field-error" id="err_truck_id">Truck ID is required.</div>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label for="receipt_number">Receipt Number <span class="required">*</span></label>
+                <input type="text" id="receipt_number" name="receipt_number" placeholder="e.g. RCP-2026-00123" maxlength="64" required>
+                <div class="field-error" id="err_receipt_number">Receipt number is required.</div>
+            </div>
+            <div class="form-group">
+                <label for="farm_of_origin">Farm of Origin <span class="required">*</span></label>
+                <input type="text" id="farm_of_origin" name="farm_of_origin" placeholder="e.g. Papageorgiou Farm" maxlength="255" required>
+                <div class="field-error" id="err_farm_of_origin">Farm of origin is required.</div>
+            </div>
+        </div>
+
+        <!-- Quantities -->
+        <div class="section-title">Milk Quantities</div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label for="cow_milk_delivered_kg">Cow's Milk Delivered (kg) <span class="required">*</span></label>
+                <input type="number" id="cow_milk_delivered_kg" name="cow_milk_delivered_kg" min="0.01" step="0.01" placeholder="0.00" required>
+                <div class="field-error" id="err_cow_milk_delivered_kg">Must be a positive number.</div>
+            </div>
+            <div class="form-group">
+                <label for="total_cow_milk_in_truck_kg">Total Cow's Milk in Truck (kg) <span class="required">*</span></label>
+                <input type="number" id="total_cow_milk_in_truck_kg" name="total_cow_milk_in_truck_kg" min="0.01" step="0.01" placeholder="0.00" required>
+                <div class="field-error" id="err_total_cow_milk_in_truck_kg">Must be a positive number.</div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="total_milk_in_truck_kg">Total Milk in Truck (kg) <span class="required">*</span></label>
+            <input type="number" id="total_milk_in_truck_kg" name="total_milk_in_truck_kg" min="0.01" step="0.01" placeholder="0.00" required>
+            <p class="hint">All species combined. Must be ≥ Total Cow's Milk in Truck.</p>
+            <div class="field-error" id="err_total_milk_in_truck_kg">Must be a positive number and ≥ total cow's milk in truck.</div>
+        </div>
+
+        <!-- Storage -->
+        <div class="section-title">Storage</div>
+        <div class="form-group">
+            <label>Silo Where Milk Was Stored <span class="required">*</span></label>
+            <div class="silo-group" id="siloGroup">
+                <div class="silo-option" id="silo1Wrap">
+                    <input type="radio" id="silo1" name="silo_number" value="1" required>
+                    <label for="silo1">Silo 1</label>
+                </div>
+                <div class="silo-option" id="silo2Wrap">
+                    <input type="radio" id="silo2" name="silo_number" value="2">
+                    <label for="silo2">Silo 2</label>
+                </div>
+            </div>
+            <div class="field-error" id="err_silo_number">Please select a silo.</div>
+        </div>
+
+        <!-- Production batch (optional – filled when batch is produced) -->
+        <div class="section-title">Production Batch (fill in when batch is produced)</div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label for="production_batch_numbers">Production Batch Number(s)</label>
+                <input type="text" id="production_batch_numbers" name="production_batch_numbers" placeholder="e.g. B2026-001, B2026-002">
+                <p class="hint">Comma-separated if multiple batches.</p>
+            </div>
+            <div class="form-group">
+                <label for="batch_produced_date">Date Batch Produced</label>
+                <input type="date" id="batch_produced_date" name="batch_produced_date">
+            </div>
+        </div>
+
+        <button type="submit" id="submitBtn">
+            <span class="button-text">Save Delivery Record</span>
+            <div class="spinner"></div>
+        </button>
+    </form>
+</div>
+
+<script>
+    const form        = document.getElementById('deliveryForm');
+    const submitBtn   = document.getElementById('submitBtn');
+    const messageDiv  = document.getElementById('message');
+
+    // Silo visual selection
+    document.querySelectorAll('input[name="silo_number"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            document.getElementById('silo1Wrap').classList.toggle('selected', document.getElementById('silo1').checked);
+            document.getElementById('silo2Wrap').classList.toggle('selected', document.getElementById('silo2').checked);
+        });
+    });
+
+    function showError(id, show) {
+        const el = document.getElementById('err_' + id);
+        if (el) el.classList.toggle('show', show);
+        const field = document.getElementById(id);
+        if (field) field.classList.toggle('invalid', show);
+    }
+
+    function validate() {
+        let valid = true;
+
+        const required = ['reception_date', 'truck_id', 'receipt_number', 'farm_of_origin',
+                          'cow_milk_delivered_kg', 'total_cow_milk_in_truck_kg', 'total_milk_in_truck_kg'];
+        required.forEach(id => {
+            const val = (document.getElementById(id).value || '').trim();
+            const empty = val === '';
+            showError(id, empty);
+            if (empty) valid = false;
+        });
+
+        // Numeric positivity
+        ['cow_milk_delivered_kg', 'total_cow_milk_in_truck_kg', 'total_milk_in_truck_kg'].forEach(id => {
+            const v = parseFloat(document.getElementById(id).value);
+            if (!isNaN(v) && v <= 0) { showError(id, true); valid = false; }
+        });
+
+        // total_milk >= total_cow_milk
+        const cowMilk   = parseFloat(document.getElementById('total_cow_milk_in_truck_kg').value);
+        const totalMilk = parseFloat(document.getElementById('total_milk_in_truck_kg').value);
+        if (!isNaN(cowMilk) && !isNaN(totalMilk) && totalMilk < cowMilk) {
+            showError('total_milk_in_truck_kg', true);
+            valid = false;
+        }
+
+        // Silo selection
+        const siloSelected = document.querySelector('input[name="silo_number"]:checked');
+        showError('silo_number', !siloSelected);
+        if (!siloSelected) valid = false;
+
+        return valid;
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!validate()) return;
+
+        const apiKey = document.getElementById('apiKey').value.trim();
+        if (!apiKey) {
+            messageDiv.className = 'message error show';
+            messageDiv.textContent = 'API Key is required to submit.';
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.classList.add('loading');
+        messageDiv.className = 'message';
+
+        const siloSelected = document.querySelector('input[name="silo_number"]:checked');
+        const payload = {
+            reception_date:              document.getElementById('reception_date').value,
+            truck_id:                    document.getElementById('truck_id').value.trim(),
+            receipt_number:              document.getElementById('receipt_number').value.trim(),
+            farm_of_origin:              document.getElementById('farm_of_origin').value.trim(),
+            cow_milk_delivered_kg:       parseFloat(document.getElementById('cow_milk_delivered_kg').value),
+            total_cow_milk_in_truck_kg:  parseFloat(document.getElementById('total_cow_milk_in_truck_kg').value),
+            total_milk_in_truck_kg:      parseFloat(document.getElementById('total_milk_in_truck_kg').value),
+            silo_number:                 parseInt(siloSelected.value, 10),
+        };
+
+        const batchNums = document.getElementById('production_batch_numbers').value.trim();
+        if (batchNums) payload.production_batch_numbers = batchNums;
+
+        const batchDate = document.getElementById('batch_produced_date').value;
+        if (batchDate) payload.batch_produced_date = batchDate;
+
+        try {
+            const response = await fetch('/api/v1/truck-deliveries/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                messageDiv.className = 'message success show';
+                messageDiv.innerHTML = `
+                    <strong>✓ Delivery recorded!</strong><br>
+                    ID: ${data.id} &nbsp;|&nbsp; Truck: ${data.truck_id} &nbsp;|&nbsp; Receipt: ${data.receipt_number}
+                `;
+                form.reset();
+                document.getElementById('silo1Wrap').classList.remove('selected');
+                document.getElementById('silo2Wrap').classList.remove('selected');
+            } else {
+                throw new Error(data.detail || JSON.stringify(data));
+            }
+        } catch (err) {
+            messageDiv.className = 'message error show';
+            messageDiv.innerHTML = `<strong>✗ Error</strong><br>${err.message}`;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('loading');
+        }
+    });
+
+    // Clear field errors on input
+    form.querySelectorAll('input, select, textarea').forEach(el => {
+        el.addEventListener('input', () => {
+            if (el.name) showError(el.name, false);
+        });
+    });
+</script>
+</body>
+</html>

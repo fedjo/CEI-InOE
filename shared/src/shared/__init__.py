@@ -27,6 +27,7 @@ from shared.models import (
     StagingDairyProduction,
     StagingSolarKpi,
     StagingWeatherForecast,
+    TruckMilkDelivery,
 )
 
 from shared.schemas import (
@@ -58,6 +59,9 @@ from shared.schemas import (
     HealthResponse,
     DataUploadRequest,
     DataUploadResponse,
+    TruckMilkDeliveryCreate,
+    TruckMilkDeliveryRead,
+    TruckMilkDeliveryUpdate,
 )
 
 from shared.database import (
@@ -96,6 +100,7 @@ __all__ = [
     "FactSolarMonthly",
     "FactWeatherForecast",
     "StagingWeatherForecast",
+    "TruckMilkDelivery",
     # Schemas
     "GeoJSONPoint",
     "SiteRead",
@@ -125,6 +130,10 @@ __all__ = [
     "HealthResponse",
     "DataUploadRequest",
     "DataUploadResponse",
+    "TruckMilkDelivery",
+    "TruckMilkDeliveryCreate",
+    "TruckMilkDeliveryRead",
+    "TruckMilkDeliveryUpdate",
     # Database utilities
     "get_engine",
     "close_engine",

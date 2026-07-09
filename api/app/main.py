@@ -10,7 +10,7 @@ import logging
 from app.config import settings, get_cors_origins
 from app.auth import verify_api_key
 from shared.database import get_engine, close_engine
-from app.routers import health, energy, environmental, dairy, datasources, batches, forecast, sites, solar, upload
+from app.routers import health, energy, environmental, dairy, datasources, batches, forecast, sites, solar, upload, truck_deliveries
 
 # Configure logging
 logging.basicConfig(
@@ -142,16 +142,25 @@ app.include_router(
     dependencies=[Depends(verify_api_key)],
 )
 
+app.include_router(
+    truck_deliveries.router,
+    prefix="/api/v1/truck-deliveries",
+    tags=["Truck Milk Deliveries"],
+    dependencies=[Depends(verify_api_key)],
+)
 
-@app.get("/upload-form")
-async def serve_upload_form():
-    """
-    Serve the data upload form HTML page.
-    
-    This is a public route (no auth required) for easy access during development.
-    In production, you may want to add authentication.
-    """
-    html_path = Path(__file__).parent / "templates" / "upload_form.html"
+
+@app.get("/truck-delivery-form")
+async def serve_truck_delivery_form():
+    """Serve the truck milk delivery entry form."""
+    html_path = Path(__file__).parent / "templates" / "truck_delivery_form.html"
+    return FileResponse(html_path, media_type="text/html")
+
+
+@app.get("/truck-delivery-search")
+async def serve_truck_delivery_search():
+    """Serve the truck milk delivery search / PDF report form."""
+    html_path = Path(__file__).parent / "templates" / "truck_delivery_search.html"
     return FileResponse(html_path, media_type="text/html")
 
 
