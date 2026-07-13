@@ -65,12 +65,12 @@ class TestTruckMilkDeliverySchema:
         assert schema.truck_id == "TRK-001"
         assert schema.silo_number == 1
 
-    def test_silo_must_be_1_or_2(self):
+    def test_silo_must_be_0_to_3(self):
         from pydantic import ValidationError
         with pytest.raises(ValidationError):
-            self._valid_payload(silo_number=0)
+            self._valid_payload(silo_number=-1)
         with pytest.raises(ValidationError):
-            self._valid_payload(silo_number=3)
+            self._valid_payload(silo_number=4)
 
     def test_cow_milk_delivered_must_be_positive(self):
         from pydantic import ValidationError
@@ -410,5 +410,89 @@ class TestTruckDeliveryRoutes:
         try:
             resp = client.delete("/api/v1/truck-deliveries/999", headers=auth_headers)
             assert resp.status_code == 404
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+    # ── GET /api/v1/truck-deliveries/summary/monthly ──────────────────────
+
+    def test_monthly_summary_returns_aggregates(self, client, auth_headers):
+        from app.db.session import get_db
+        from app.main import app
+
+        # Mock query result simulating SQLAlchemy aggregate query
+        mock_result = SimpleNamespace(
+            year=2026,
+            month=7,
+            farm_of_origin="LK Farm",
+            total_milk_kg=3600.0,
+            delivery_count=3
+        )
+
+        db = MagicMock()
+        mock_query = db.query.return_value
+        mock_query.filter.return_value = mock_query
+        mock_query.group_by.return_value = mock_query
+        mock_query.order_by.return_value = mock_query
+        mock_query.all.return_value = [mock_result]
+
+        def override():
+            yield db
+
+        app.dependency_overrides[get_db] = override
+        try:
+            resp = client.get("/api/v1/truck-deliveries/summary/monthly", headers=auth_headers)
+            assert resp.status_code == 200
+            data = resp.json()
+            assert len(data) == 1
+            assert data[0]["year"] == 2026
+            assert data[0]["month"] == 7
+            assert data[0]["farm_of_origin"] == "LK Farm"
+            assert data[0]["total_milk_kg"] == 3600.0
+            assert data[0]["delivery_count"] == 3
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+    def test_monthly_summary_with_date_filters(self, client, auth_headers):
+        from app.db.session import get_db
+        from app.main import app
+
+        db = MagicMock()
+        mock_query = db.query.return_value
+        mock_query.filter.return_value = mock_query
+        mock_query.group_by.return_value = mock_query
+        mock_query.order_by.return_value = mock_query
+        mock_query.all.return_value = []
+
+        def override():
+            yield db
+
+        app.dependency_overrides[get_db] = override
+        try:
+            resp = client.get(
+                "/api/v1/truck-deliveries/summary/monthly?start_date=2026-07-01&end_date=2026-07-31",
+                headers=auth_headers
+            )
+            assert resp.status_code == 200
+            # Verify filters were called
+            assert mock_query.filter.called
+        finally:
+            app.dependency_overrides.pop(get_db, None)
+
+    def test_monthly_summary_invalid_date_range(self, client, auth_headers):
+        from app.db.session import get_db
+        from app.main import app
+
+        db = MagicMock()
+
+        def override():
+            yield db
+
+        app.dependency_overrides[get_db] = override
+        try:
+            resp = client.get(
+                "/api/v1/truck-deliveries/summary/monthly?start_date=2026-07-31&end_date=2026-07-01",
+                headers=auth_headers
+            )
+            assert resp.status_code == 400
         finally:
             app.dependency_overrides.pop(get_db, None)
