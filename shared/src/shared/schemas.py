@@ -516,7 +516,7 @@ class TruckMilkDeliveryBase(BaseModel):
     cow_milk_delivered_kg: float = Field(..., gt=0, description="Cow's milk delivered by this trip (kg)")
     total_cow_milk_in_truck_kg: float = Field(..., gt=0, description="Total cow's milk in truck (kg)")
     total_milk_in_truck_kg: float = Field(..., gt=0, description="Total milk in truck (all species) (kg)")
-    silo_number: int = Field(..., ge=1, le=2, description="Silo where milk was stored (1 or 2)")
+    silo_number: int = Field(..., ge=0, le=3, description="Silo where milk was stored (0 for Other, 1, 2, or 3)")
     production_batch_numbers: Optional[str] = Field(None, description="Comma-separated production batch number(s)")
     batch_produced_date: Optional[date] = Field(None, description="Date the production batch was produced")
 

@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func, extract
 from datetime import date
 from typing import Optional
 
@@ -116,6 +117,56 @@ def update_delivery(
     db.commit()
     db.refresh(delivery)
     return TruckMilkDeliveryRead.model_validate(delivery)
+
+
+@router.get("/summary/monthly", response_model=list[dict])
+def get_monthly_summary(
+    start_date: Optional[date] = Query(None, description="Filter by reception date (from)"),
+    end_date: Optional[date] = Query(None, description="Filter by reception date (to)"),
+    db: Session = Depends(get_db),
+):
+    """Get monthly milk delivery totals per farm.
+    
+    Returns aggregated data grouped by month and farm, showing total milk delivered.
+    Useful for reporting and trend analysis.
+    """
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=400, detail="start_date must be before or equal to end_date"
+        )
+    
+    # Build query for monthly aggregation
+    q = db.query(
+        extract('year', TruckMilkDelivery.reception_date).label('year'),
+        extract('month', TruckMilkDelivery.reception_date).label('month'),
+        TruckMilkDelivery.farm_of_origin,
+        func.sum(TruckMilkDelivery.total_milk_in_truck_kg).label('total_milk_kg'),
+        func.count(TruckMilkDelivery.id).label('delivery_count'),
+    )
+    
+    if start_date:
+        q = q.filter(TruckMilkDelivery.reception_date >= start_date)
+    if end_date:
+        q = q.filter(TruckMilkDelivery.reception_date <= end_date)
+    
+    q = q.group_by(
+        extract('year', TruckMilkDelivery.reception_date),
+        extract('month', TruckMilkDelivery.reception_date),
+        TruckMilkDelivery.farm_of_origin
+    ).order_by('year', 'month', TruckMilkDelivery.farm_of_origin)
+    
+    results = q.all()
+    
+    return [
+        {
+            "year": int(r.year),
+            "month": int(r.month),
+            "farm_of_origin": r.farm_of_origin,
+            "total_milk_kg": float(r.total_milk_kg),
+            "delivery_count": r.delivery_count,
+        }
+        for r in results
+    ]
 
 
 @router.delete("/{delivery_id}", status_code=204)

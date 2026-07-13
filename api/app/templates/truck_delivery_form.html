@@ -208,16 +208,26 @@
             </div>
             <div class="form-group">
                 <label for="farm_of_origin">Farm of Origin <span class="required">*</span></label>
-                <input type="text" id="farm_of_origin" name="farm_of_origin" placeholder="e.g. Papageorgiou Farm" maxlength="255" required>
+                <select id="farm_of_origin" name="farm_of_origin" required>
+                    <option value="" disabled selected>Select a farm</option>
+                    <option value="LK Farm">LK Farm</option>
+                    <option value="Blue Farm">Blue Farm</option>
+                </select>
                 <div class="field-error" id="err_farm_of_origin">Farm of origin is required.</div>
             </div>
         </div>
 
         <!-- Quantities -->
         <div class="section-title">Milk Quantities</div>
+        <div class="form-group">
+            <label for="total_milk_in_truck_kg">Total Milk in Truck (kg) <span class="required">*</span></label>
+            <input type="number" id="total_milk_in_truck_kg" name="total_milk_in_truck_kg" min="0.01" step="0.01" placeholder="0.00" required>
+            <p class="hint">All species combined. Must be ≥ Total Cow's Milk in Truck.</p>
+            <div class="field-error" id="err_total_milk_in_truck_kg">Must be a positive number and ≥ total cow's milk in truck.</div>
+        </div>
         <div class="grid-2">
             <div class="form-group">
-                <label for="cow_milk_delivered_kg">Cow's Milk Delivered (kg) <span class="required">*</span></label>
+                <label for="cow_milk_delivered_kg">Cow's Milk Delivered from Farm (kg) <span class="required">*</span></label>
                 <input type="number" id="cow_milk_delivered_kg" name="cow_milk_delivered_kg" min="0.01" step="0.01" placeholder="0.00" required>
                 <div class="field-error" id="err_cow_milk_delivered_kg">Must be a positive number.</div>
             </div>
@@ -227,12 +237,7 @@
                 <div class="field-error" id="err_total_cow_milk_in_truck_kg">Must be a positive number.</div>
             </div>
         </div>
-        <div class="form-group">
-            <label for="total_milk_in_truck_kg">Total Milk in Truck (kg) <span class="required">*</span></label>
-            <input type="number" id="total_milk_in_truck_kg" name="total_milk_in_truck_kg" min="0.01" step="0.01" placeholder="0.00" required>
-            <p class="hint">All species combined. Must be ≥ Total Cow's Milk in Truck.</p>
-            <div class="field-error" id="err_total_milk_in_truck_kg">Must be a positive number and ≥ total cow's milk in truck.</div>
-        </div>
+
 
         <!-- Storage -->
         <div class="section-title">Storage</div>
@@ -246,6 +251,14 @@
                 <div class="silo-option" id="silo2Wrap">
                     <input type="radio" id="silo2" name="silo_number" value="2">
                     <label for="silo2">Silo 2</label>
+                </div>
+                <div class="silo-option" id="silo3Wrap">
+                    <input type="radio" id="silo3" name="silo_number" value="3">
+                    <label for="silo3">Silo 3</label>
+                </div>
+                <div class="silo-option" id="siloOtherWrap">
+                    <input type="radio" id="siloOther" name="silo_number" value="0">
+                    <label for="siloOther">Other</label>
                 </div>
             </div>
             <div class="field-error" id="err_silo_number">Please select a silo.</div>
