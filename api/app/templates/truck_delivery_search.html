@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEI-InOE – Truck Milk Delivery Records</title>
+    <style>
+        /* ── Base ──────────────────────────────────────────────────────── */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a6b3c 0%, #2e9e5e 100%);
+            min-height: 100vh;
+            padding: 18px;
+        }
+
+        .page-wrapper {
+            max-width: 1680px;
+            margin: 0 auto;
+        }
+
+        /* ── Filter card ───────────────────────────────────────────────── */
+        .filter-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+            padding: 28px 30px 24px;
+            margin-bottom: 24px;
+        }
+
+        h1 { color: #1a3c28; font-size: 24px; margin-bottom: 4px; }
+        .subtitle { color: #666; font-size: 13px; margin-bottom: 28px; }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto auto;
+            gap: 14px;
+            align-items: flex-end;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #444;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        input[type="date"],
+        input[type="text"] {
+            padding: 9px 12px;
+            border: 2px solid #d8e8df;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fafffe;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #1a6b3c;
+            box-shadow: 0 0 0 3px rgba(26,107,60,0.12);
+            background: #fff;
+        }
+
+        .btn {
+            padding: 9px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+            white-space: nowrap;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn-search {
+            background: linear-gradient(135deg, #1a6b3c 0%, #2e9e5e 100%);
+            color: #fff;
+        }
+        .btn-search:hover { box-shadow: 0 6px 16px rgba(26,107,60,0.3); }
+        .btn-pdf {
+            background: #fff;
+            color: #c0392b;
+            border: 2px solid #e0bfbc;
+        }
+        .btn-pdf:hover { background: #fdf0ef; box-shadow: 0 4px 12px rgba(192,57,43,0.15); }
+        .btn-pdf:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        /* ── Messages ──────────────────────────────────────────────────── */
+        .message {
+            padding: 11px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .message.show { display: block; }
+        .message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .message.info  { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+        /* ── Results card ──────────────────────────────────────────────── */
+        .results-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+            padding: 24px 28px;
+            display: none;
+        }
+        .results-card.show { display: block; }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        .results-title { font-size: 16px; font-weight: 700; color: #1a3c28; }
+        .results-count { font-size: 13px; color: #888; }
+
+        /* ── Table ─────────────────────────────────────────────────────── */
+        .table-wrap { overflow-x: visible; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        thead tr {
+            background: #e8f5ee;
+        }
+        thead th {
+            padding: 8px 8px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #1a6b3c;
+            border-bottom: 2px solid #c8e6d4;
+            white-space: normal;
+        }
+
+        tbody tr { border-bottom: 1px solid #f0f0f0; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: #f8fdf9; }
+
+        td {
+            padding: 8px 8px;
+            color: #333;
+            vertical-align: middle;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+
+        th:nth-child(1), td:nth-child(1) { width: 3%; }
+        th:nth-child(2), td:nth-child(2) { width: 8%; }
+        th:nth-child(3), td:nth-child(3) { width: 9%; }
+        th:nth-child(4), td:nth-child(4) { width: 9%; }
+        th:nth-child(5), td:nth-child(5) { width: 11%; }
+        th:nth-child(6), td:nth-child(6) { width: 8%; }
+        th:nth-child(7), td:nth-child(7) { width: 8%; }
+        th:nth-child(8), td:nth-child(8) { width: 8%; }
+        th:nth-child(9), td:nth-child(9) { width: 6%; }
+        th:nth-child(10), td:nth-child(10) { width: 12%; }
+        th:nth-child(11), td:nth-child(11) { width: 8%; }
+        th:nth-child(12), td:nth-child(12) { width: 8%; }
+
+        .silo-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .silo-1 { background: #d4edda; color: #155724; }
+        .silo-2 { background: #cce5ff; color: #004085; }
+        .silo-3 { background: #fff3cd; color: #856404; }
+        .silo-0 { background: #e2e3e5; color: #6c757d; }
+
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #aaa;
+            font-size: 15px;
+        }
+
+        /* ── Spinner ───────────────────────────────────────────────────── */
+        .spinner-wrap { display: none; text-align: center; padding: 30px; }
+        .spinner-wrap.show { display: block; }
+        .spinner {
+            display: inline-block;
+            width: 28px; height: 28px;
+            border: 4px solid #d8e8df;
+            border-top-color: #1a6b3c;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Print / PDF ────────────────────────────────────────────────── */
+        @media print {
+            body {
+                background: none;
+                padding: 0;
+            }
+            .filter-card { box-shadow: none; border: 1px solid #ccc; page-break-after: avoid; }
+            .btn, .btn-pdf, #btnSearch { display: none !important; }
+            .results-card { box-shadow: none; border: 1px solid #ccc; display: block !important; }
+            .print-header { display: block !important; }
+            .no-print { display: none !important; }
+            thead tr { background: #e8f5ee !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            
+            /* Optimize table for print */
+            table { font-size: 10px; }
+            th, td { padding: 6px 8px; }
+            .silo-badge { font-size: 9px; padding: 1px 6px; }
+            
+            /* Ensure summary prints nicely */
+            .summary-section {
+                page-break-inside: avoid; 
+                margin-bottom: 16px;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .summary-item {
+                page-break-inside: avoid;
+            }
+        }
+
+        .print-header {
+            display: none;
+            margin-bottom: 12px;
+            font-size: 11px;
+            color: #555;
+        }
+
+        /* ── Edit Modal ────────────────────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-content {
+            background: #fff;
+            border-radius: 12px;
+            padding: 28px 32px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal-header {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a3c28;
+            margin-bottom: 20px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            justify-content: flex-end;
+        }
+        .btn-cancel {
+            background: #e0e0e0;
+            color: #555;
+        }
+        .btn-cancel:hover { background: #d0d0d0; }
+        .btn-save {
+            background: linear-gradient(135deg, #1a6b3c 0%, #2e9e5e 100%);
+            color: #fff;
+        }
+        .btn-save:hover { box-shadow: 0 6px 16px rgba(26,107,60,0.3); }
+
+        .edit-btn {
+            padding: 4px 10px;
+            font-size: 11px;
+            background: #f0f0f0;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .edit-btn:hover { background: #e0e0e0; }
+
+        /* ── Monthly Summary ───────────────────────────────────────────── */
+        .summary-section {
+            margin-bottom: 24px;
+            padding: 20px;
+            background: #f8fdf9;
+            border-radius: 8px;
+            border: 1px solid #d8e8df;
+        }
+        .summary-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1a6b3c;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .summary-item {
+            padding: 12px;
+            background: #fff;
+            border-radius: 6px;
+            border: 1px solid #e0e8e4;
+        }
+        .summary-item-label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .summary-item-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a3c28;
+        }
+
+        @media (max-width: 780px) {
+            .filter-row { grid-template-columns: 1fr 1fr; }
+            .table-wrap { overflow-x: auto; }
+        }
+        @media (max-width: 480px) {
+            .filter-row { grid-template-columns: 1fr; }
+            .filter-card, .results-card { padding: 20px; }
+            .table-wrap { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+    <!-- Filter card -->
+    <div class="filter-card">
+        <h1>🚛 Truck Milk Delivery Records</h1>
+        <p class="subtitle">CEI-InOE Platform – Search and export delivery records</p>
+
+        <div id="message" class="message"></div>
+
+        <div class="filter-row">
+            <div class="form-group">
+                <label for="apiKey">API Key</label>
+                <input type="text" id="apiKey" placeholder="Your API key" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="startDate">Reception Date From</label>
+                <input type="date" id="startDate">
+            </div>
+            <div class="form-group">
+                <label for="endDate">Reception Date To</label>
+                <input type="date" id="endDate">
+            </div>
+            <div class="form-group">
+                <label for="truckId">Truck / Vehicle No.</label>
+                <input type="text" id="truckId" placeholder="e.g. TRK-001">
+            </div>
+            <button class="btn btn-search" id="btnSearch" onclick="search()">Search</button>
+            <button class="btn btn-pdf" id="btnPdf" disabled onclick="exportPdf()">⬇ PDF</button>
+        </div>
+    </div>
+
+    <!-- Spinner -->
+    <div class="spinner-wrap" id="spinnerWrap"><div class="spinner"></div></div>
+
+    <!-- Results card -->
+    <div class="results-card" id="resultsCard">
+        <div class="print-header" id="printHeader"></div>
+
+        <div class="results-header">
+            <span class="results-title">Results</span>
+            <span class="results-count" id="resultsCount"></span>
+        </div>
+
+        <!-- Monthly Summary Section -->
+        <div class="summary-section" id="summarySection" style="display:none;">
+            <div class="summary-title">Monthly Totals per Farm</div>
+            <div class="summary-grid" id="summaryGrid"></div>
+        </div>
+
+        <div class="table-wrap">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Reception Date</th>
+                        <th>Truck / Vehicle No.</th>
+                        <th>Receipt No.</th>
+                        <th>Farm of Origin</th>
+                        <th>Cow's Milk Delivered (kg)</th>
+                        <th>Total Cow's Milk in Truck (kg)</th>
+                        <th>Total Milk in Truck (kg)</th>
+                        <th>Silo</th>
+                        <th>Production Batch No.(s)</th>
+                        <th>Date Batch Produced</th>
+                        <th class="no-print">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+
+        <div id="noResults" class="no-results" style="display:none;">
+            No records found for the selected criteria.
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">Edit Production Batch Info</div>
+            <div class="form-group">
+                <label for="editBatchNumbers">Production Batch Number(s)</label>
+                <input type="text" id="editBatchNumbers" placeholder="e.g. B2026-001, B2026-002">
+                <p class="hint">Comma-separated if multiple batches.</p>
+            </div>
+            <div class="form-group">
+                <label for="editBatchDate">Date Batch Produced</label>
+                <input type="date" id="editBatchDate">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
+                <button class="btn btn-save" onclick="saveEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    function fmtDate(iso) {
+        if (!iso) return '—';
+        const [y, m, d] = iso.split('-');
+        return `${d}/${m}/${y}`;
+    }
+
+    function fmtNum(v) {
+        if (v == null) return '—';
+        return parseFloat(v).toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function showMessage(text, type = 'error') {
+        const el = document.getElementById('message');
+        el.textContent = text;
+        el.className = `message ${type} show`;
+    }
+
+    function clearMessage() {
+        const el = document.getElementById('message');
+        el.className = 'message';
+        el.textContent = '';
+    }
+
+    // ── Search ─────────────────────────────────────────────────────────────────
+
+    let lastRecords = [];
+    let currentFilters = {};
+    let editingRecordId = null;
+
+    async function search() {
+        clearMessage();
+
+        const apiKey    = document.getElementById('apiKey').value.trim();
+        const startDate = document.getElementById('startDate').value;
+        const endDate   = document.getElementById('endDate').value;
+        const truckId   = document.getElementById('truckId').value.trim();
+
+        if (!apiKey) {
+            showMessage('API Key is required.');
+            return;
+        }
+
+        if (startDate && endDate && startDate > endDate) {
+            showMessage('"From" date must not be after "To" date.');
+            return;
+        }
+
+        currentFilters = { apiKey, startDate, endDate, truckId };
+
+        // Build query string
+        const params = new URLSearchParams({ page: 1, page_size: 200 });
+        if (startDate) params.append('start_date', startDate);
+        if (endDate)   params.append('end_date', endDate);
+        if (truckId)   params.append('truck_id', truckId);
+
+        document.getElementById('spinnerWrap').classList.add('show');
+        document.getElementById('resultsCard').classList.remove('show');
+        document.getElementById('btnSearch').disabled = true;
+
+        try {
+            // Fetch records
+            const resp = await fetch(`/api/v1/truck-deliveries/?${params}`, {
+                headers: { 'X-API-Key': apiKey },
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${resp.status}`);
+            }
+
+            const data = await resp.json();
+            lastRecords = data.data || [];
+
+            // Fetch monthly summary
+            const summaryParams = new URLSearchParams();
+            if (startDate) summaryParams.append('start_date', startDate);
+            if (endDate)   summaryParams.append('end_date', endDate);
+
+            const summaryResp = await fetch(`/api/v1/truck-deliveries/summary/monthly?${summaryParams}`, {
+                headers: { 'X-API-Key': apiKey },
+            });
+
+            let monthlySummary = [];
+            if (summaryResp.ok) {
+                monthlySummary = await summaryResp.json();
+            }
+
+            renderTable(lastRecords, data.total, { startDate, endDate, truckId });
+            renderMonthlySummary(monthlySummary);
+
+        } catch (err) {
+            showMessage(`Error: ${err.message}`);
+        } finally {
+            document.getElementById('spinnerWrap').classList.remove('show');
+            document.getElementById('btnSearch').disabled = false;
+        }
+    }
+
+    function renderTable(records, total, filters) {
+        const tbody  = document.getElementById('resultsBody');
+        const noRes  = document.getElementById('noResults');
+        const table  = document.getElementById('resultsTable');
+        const card   = document.getElementById('resultsCard');
+        const count  = document.getElementById('resultsCount');
+        const pdfBtn = document.getElementById('btnPdf');
+
+        tbody.innerHTML = '';
+
+        if (records.length === 0) {
+            table.style.display  = 'none';
+            noRes.style.display  = 'block';
+            pdfBtn.disabled      = true;
+        } else {
+            table.style.display  = '';
+            noRes.style.display  = 'none';
+            pdfBtn.disabled      = false;
+
+            records.forEach((r, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td>${fmtDate(r.reception_date)}</td>
+                    <td>${r.truck_id}</td>
+                    <td>${r.receipt_number}</td>
+                    <td>${r.farm_of_origin}</td>
+                    <td style="text-align:right">${fmtNum(r.cow_milk_delivered_kg)}</td>
+                    <td style="text-align:right">${fmtNum(r.total_cow_milk_in_truck_kg)}</td>
+                    <td style="text-align:right">${fmtNum(r.total_milk_in_truck_kg)}</td>
+                    <td><span class="silo-badge silo-${r.silo_number}">Silo ${r.silo_number === 0 ? 'Other' : r.silo_number}</span></td>
+                    <td>${r.production_batch_numbers || '—'}</td>
+                    <td>${fmtDate(r.batch_produced_date)}</td>
+                    <td class="no-print"><button class="edit-btn" onclick="openEditModal(${r.id})">✎ Edit</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Summary count (note: if total > page_size we only fetched first 200)
+        count.textContent = total > records.length
+            ? `Showing ${records.length} of ${total} records`
+            : `${total} record${total !== 1 ? 's' : ''}`;
+
+        // Print header (shown only when printing)
+        const parts = [];
+        if (filters.startDate || filters.endDate) {
+            parts.push(`Period: ${filters.startDate ? fmtDate(filters.startDate) : '—'} → ${filters.endDate ? fmtDate(filters.endDate) : '—'}`);
+        }
+        if (filters.truckId) parts.push(`Truck: ${filters.truckId}`);
+        document.getElementById('printHeader').textContent =
+            `CEI-InOE – Truck Milk Delivery Records | Generated: ${new Date().toLocaleString('el-GR')}` +
+            (parts.length ? ` | Filters: ${parts.join(', ')}` : '');
+
+        card.classList.add('show');
+    }
+
+    function renderMonthlySummary(summaryData) {
+        const section = document.getElementById('summarySection');
+        const grid = document.getElementById('summaryGrid');
+
+        if (!summaryData || summaryData.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        grid.innerHTML = '';
+        summaryData.forEach(item => {
+            const monthName = new Date(item.year, item.month - 1).toLocaleDateString('el-GR', { year: 'numeric', month: 'long' });
+            const div = document.createElement('div');
+            div.className = 'summary-item';
+            div.innerHTML = `
+                <div class="summary-item-label">${monthName} – ${item.farm_of_origin}</div>
+                <div class="summary-item-value">${fmtNum(item.total_milk_kg)} kg</div>
+                <div class="summary-item-label" style="margin-top:4px;font-size:10px;">${item.delivery_count} ${item.delivery_count === 1 ? 'delivery' : 'deliveries'}</div>
+            `;
+            grid.appendChild(div);
+        });
+
+        section.style.display = 'block';
+    }
+
+    // ── Edit Modal ─────────────────────────────────────────────────────────────
+
+    function openEditModal(recordId) {
+        const record = lastRecords.find(r => r.id === recordId);
+        if (!record) return;
+
+        editingRecordId = recordId;
+        document.getElementById('editBatchNumbers').value = record.production_batch_numbers || '';
+        document.getElementById('editBatchDate').value = record.batch_produced_date || '';
+        document.getElementById('editModal').classList.add('show');
+    }
+
+    function closeEditModal() {
+        document.getElementById('editModal').classList.remove('show');
+        editingRecordId = null;
+    }
+
+    async function saveEdit() {
+        if (!editingRecordId) return;
+
+        const apiKey = currentFilters.apiKey;
+        if (!apiKey) {
+            showMessage('API Key is required.');
+            return;
+        }
+
+        const batchNumbers = document.getElementById('editBatchNumbers').value.trim();
+        const batchDate = document.getElementById('editBatchDate').value;
+
+        const payload = {};
+        if (batchNumbers) payload.production_batch_numbers = batchNumbers;
+        if (batchDate) payload.batch_produced_date = batchDate;
+
+        try {
+            const resp = await fetch(`/api/v1/truck-deliveries/${editingRecordId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${resp.status}`);
+            }
+
+            const updated = await resp.json();
+
+            // Update the record in lastRecords
+            const idx = lastRecords.findIndex(r => r.id === editingRecordId);
+            if (idx !== -1) {
+                lastRecords[idx] = updated;
+            }
+
+            // Re-render table
+            renderTable(lastRecords, lastRecords.length, currentFilters);
+
+            closeEditModal();
+            showMessage('Batch information updated successfully!', 'info');
+            setTimeout(clearMessage, 3000);
+
+        } catch (err) {
+            showMessage(`Error updating: ${err.message}`);
+        }
+    }
+
+    // ── PDF export via browser print ───────────────────────────────────────────
+
+    function exportPdf() {
+        window.print();
+    }
+
+    // Allow pressing Enter in any filter input to trigger search
+    ['apiKey', 'startDate', 'endDate', 'truckId'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', e => {
+            if (e.key === 'Enter') search();
+        });
+    });
+</script>
+</body>
+</html>

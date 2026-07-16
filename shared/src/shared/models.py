@@ -860,3 +860,54 @@ class StagingSolarKpi(Base):
         Index("idx_staging_solar_kpi_valid", "is_valid", "loaded_to_final"),
         Index("idx_staging_solar_kpi_granularity", "granularity"),
     )
+
+
+# =============================================================================
+# Truck Milk Delivery
+# =============================================================================
+
+class TruckMilkDelivery(Base):
+    """Records milk deliveries received from farms by truck."""
+    __tablename__ = "truck_milk_delivery"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    # Reception info
+    reception_date: Mapped[date] = mapped_column(Date, nullable=False,
+                                                  comment="Date milk was received (DD/MM/YYYY)")
+    truck_id: Mapped[str] = mapped_column(String(64), nullable=False,
+                                          comment="Truck / vehicle identifier")
+    receipt_number: Mapped[str] = mapped_column(String(64), nullable=False,
+                                                 comment="Receipt number from records")
+    farm_of_origin: Mapped[str] = mapped_column(String(255), nullable=False,
+                                                 comment="Name / identifier of the originating farm")
+
+    # Quantities
+    cow_milk_delivered_kg: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False,
+                                                          comment="Cow's milk delivered by this trip (kg)")
+    total_cow_milk_in_truck_kg: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False,
+                                                               comment="Total cow's milk in truck (kg)")
+    total_milk_in_truck_kg: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False,
+                                                           comment="Total milk in truck (all species) (kg)")
+
+    # Storage
+    silo_number: Mapped[int] = mapped_column(Integer, nullable=False,
+                                              comment="Silo where milk was stored (1 or 2)")
+
+    # Production batch (filled when batch is produced)
+    production_batch_numbers: Mapped[Optional[str]] = mapped_column(Text,
+                                                                     comment="Comma-separated production batch number(s)")
+    batch_produced_date: Mapped[Optional[date]] = mapped_column(Date,
+                                                                  comment="Date the production batch was produced")
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
+                                                  onupdate=func.now())
+
+    __table_args__ = (
+        Index("idx_truck_delivery_date", "reception_date"),
+        Index("idx_truck_delivery_truck", "truck_id"),
+        Index("idx_truck_delivery_receipt", "receipt_number"),
+        UniqueConstraint("receipt_number", name="uq_truck_delivery_receipt"),
+    )
