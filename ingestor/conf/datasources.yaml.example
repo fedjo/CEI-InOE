@@ -101,13 +101,66 @@ datasources:
   - external_id: "68f1fb6521551f000a728daa"
     source_category: api
     data_type: energy
-    alias: DB-G Ventilation Fans 1
+    alias: Main
     client: Blue Farm Dairy
     status: offline
     metadata:
       name: eastron_sdm630_6617
-      alias: DB-G Ventilation Fans 1
+      alias: Main
       device_token: <DEVICE_TOKEN_HERE>
+
+  - external_id: "6902200e7ba448000a6f5cbc"
+    source_category: api
+    data_type: energy
+    alias: DB-M Fan 1
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      alias: DB-M Fan 1 (5)
+      device_token: <DEVICE_TOKEN_HERE>
+
+  - external_id: "6902200e94138e000a0dbe90"
+    source_category: api
+    data_type: energy
+    alias: DB-M Fan 2 (6)
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      alias: DB-M Fan 2 (6)
+      device_token: <DEVICE_TOKEN_HERE>
+
+  - external_id: "6a353c44538bc0000b87a1d2"
+    source_category: api
+    data_type: energy
+    alias: DB-G Motor P3
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      alias: DB-G Motor P3
+      device_token: <DEVICE_TOKEN_HERE>
+      # DB-G Motor P3: 893301b6-25cc-4a2a-9cee-ed99ff4e5cfe
+
+  - external_id: "6a353c44538bc0000b87a1c9"
+    source_category: api
+    data_type: energy
+    alias: DB-G Motor P4
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      alias: DB-G Motor P4
+      device_token: <DEVICE_TOKEN_HERE>
+      # DB-G Motor P4: c75207a4-0216-4067-abc7-139ef743b414
+
+  - external_id: "6a353c4552f045000cc3591d"
+    source_category: api
+    data_type: energy
+    alias: DB-G UPS
+    client: Blue Farm Dairy
+    status: offline
+    metadata:
+      alias: DB-G UPS
+      device_token: <DEVICE_TOKEN_HERE>
+      # DB-G UPS: 498443e9-fdd5-4483-a7fc-178469f91364
 
   # --- LK Dairy Farm energy meters (Tago.io API) ---
   - external_id: "68fbe8f594138e000a6e9260"
