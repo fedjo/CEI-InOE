@@ -911,3 +911,67 @@ class TruckMilkDelivery(Base):
         Index("idx_truck_delivery_receipt", "receipt_number"),
         UniqueConstraint("receipt_number", name="uq_truck_delivery_receipt"),
     )
+
+
+# =============================================================================
+# API Principals (authenticated API clients + datasource access control)
+# =============================================================================
+
+class ApiPrincipal(Base):
+    """
+    An authenticated API client (service, user, or application).
+
+    Identified by an API key (stored as a SHA-256 hash). Superuser principals
+    bypass datasource access checks; others are restricted to the datasources
+    listed in their `datasource_access` grants.
+    """
+    __tablename__ = "api_principal"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    api_key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False,
+                                               comment="SHA-256 hash of the API key")
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="active",
+                                        comment="Status: active, suspended, revoked")
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False,
+                                                comment="Superusers bypass datasource access checks")
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(),
+                                                  onupdate=func.now())
+
+    # Relationships
+    datasource_access: Mapped[list["ApiPrincipalDatasourceAccess"]] = relationship(
+        back_populates="principal",
+        foreign_keys="ApiPrincipalDatasourceAccess.principal_id",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("idx_api_principal_status", "status"),
+    )
+
+
+class ApiPrincipalDatasourceAccess(Base):
+    """Grants a principal read access to a specific datasource."""
+    __tablename__ = "api_principal_datasource_access"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    principal_id: Mapped[int] = mapped_column(ForeignKey("api_principal.id", ondelete="CASCADE"), nullable=False)
+    datasource_id: Mapped[int] = mapped_column(ForeignKey("datasource.id", ondelete="CASCADE"), nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    granted_by: Mapped[Optional[int]] = mapped_column(ForeignKey("api_principal.id"),
+                                                       comment="Principal that granted this access, for audit purposes")
+
+    # Relationships
+    principal: Mapped["ApiPrincipal"] = relationship(back_populates="datasource_access",
+                                                       foreign_keys=[principal_id])
+    datasource: Mapped["Datasource"] = relationship(foreign_keys=[datasource_id])
+
+    __table_args__ = (
+        UniqueConstraint("principal_id", "datasource_id", name="uq_principal_datasource_access"),
+        Index("idx_principal_datasource_access_principal", "principal_id"),
+        Index("idx_principal_datasource_access_datasource", "datasource_id"),
+    )

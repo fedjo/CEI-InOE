@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.queries import dairy as dairy_queries
 from app.config import settings
+from app.auth import AuthenticatedPrincipal, ensure_datasource_access, verify_api_key
 
 from shared import DairyProductionRead, PaginatedResponse
 
@@ -26,12 +27,15 @@ async def get_dairy_production(
         description="Records per page"
     ),
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get dairy production records.
     
     Returns paginated dairy data.
     """
+    ensure_datasource_access(principal, datasource_id)
+
     if start_date and end_date and start_date > end_date:
         raise HTTPException(
             status_code=400, 
@@ -60,10 +64,13 @@ async def get_dairy_production(
 async def get_latest_dairy(
     datasource_id: int = Query(..., description="Filter by datasource ID"),
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get the most recent dairy production record.
     """
+    ensure_datasource_access(principal, datasource_id)
+
     record = dairy_queries.get_latest(db, datasource_id)
     
     if not record:
@@ -73,10 +80,16 @@ async def get_latest_dairy(
 
 
 @router.get("/stats")
-async def get_dairy_stats(db: Session = Depends(get_db)):
+async def get_dairy_stats(
+    db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
+):
     """
     Get dairy data statistics.
     
     Returns counts, date ranges, and averages.
     """
+    if not principal.is_superuser:
+        raise HTTPException(status_code=403, detail="Not available for restricted principals")
+
     return dairy_queries.get_stats(db)

@@ -28,6 +28,8 @@ from shared.models import (
     StagingSolarKpi,
     StagingWeatherForecast,
     TruckMilkDelivery,
+    ApiPrincipal,
+    ApiPrincipalDatasourceAccess,
 )
 
 from shared.schemas import (
@@ -62,6 +64,13 @@ from shared.schemas import (
     TruckMilkDeliveryCreate,
     TruckMilkDeliveryRead,
     TruckMilkDeliveryUpdate,
+    ApiPrincipalBase,
+    ApiPrincipalCreate,
+    ApiPrincipalUpdate,
+    ApiPrincipalRead,
+    ApiPrincipalCreateResponse,
+    DatasourceAccessGrant,
+    DatasourceAccessRead,
 )
 
 from shared.database import (
@@ -101,6 +110,8 @@ __all__ = [
     "FactWeatherForecast",
     "StagingWeatherForecast",
     "TruckMilkDelivery",
+    "ApiPrincipal",
+    "ApiPrincipalDatasourceAccess",
     # Schemas
     "GeoJSONPoint",
     "SiteRead",
@@ -134,6 +145,13 @@ __all__ = [
     "TruckMilkDeliveryCreate",
     "TruckMilkDeliveryRead",
     "TruckMilkDeliveryUpdate",
+    "ApiPrincipalBase",
+    "ApiPrincipalCreate",
+    "ApiPrincipalUpdate",
+    "ApiPrincipalRead",
+    "ApiPrincipalCreateResponse",
+    "DatasourceAccessGrant",
+    "DatasourceAccessRead",
     # Database utilities
     "get_engine",
     "close_engine",

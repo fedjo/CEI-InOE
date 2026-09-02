@@ -8,9 +8,9 @@ from pathlib import Path
 import logging
 
 from app.config import settings, get_cors_origins
-from app.auth import verify_api_key
+from app.auth import AuthenticatedPrincipal, verify_api_key, require_superuser
 from shared.database import get_engine, close_engine
-from app.routers import health, energy, environmental, dairy, datasources, batches, forecast, sites, solar, upload, truck_deliveries
+from app.routers import health, energy, environmental, dairy, datasources, batches, forecast, sites, solar, upload, truck_deliveries, principals
 
 # Configure logging
 logging.basicConfig(
@@ -111,21 +111,21 @@ app.include_router(
     sites.router,
     prefix="/api/v1/sites",
     tags=["Sites"],
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(require_superuser)],
 )
 
 app.include_router(
     batches.router, 
     prefix="/api/v1/batches", 
     tags=["Batches"],
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(require_superuser)],
 )
 
 app.include_router(
     forecast.router,
     prefix="/api/v1/forecast",
     tags=["Forecast"],
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(require_superuser)],
 )
 
 app.include_router(
@@ -139,14 +139,21 @@ app.include_router(
     upload.router,
     prefix="/api/v1/upload",
     tags=["Upload"],
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(require_superuser)],
 )
 
 app.include_router(
     truck_deliveries.router,
     prefix="/api/v1/truck-deliveries",
     tags=["Truck Milk Deliveries"],
-    dependencies=[Depends(verify_api_key)],
+    dependencies=[Depends(require_superuser)],
+)
+
+app.include_router(
+    principals.router,
+    prefix="/api/v1/principals",
+    tags=["Principals"],
+    dependencies=[Depends(require_superuser)],
 )
 
 

@@ -14,6 +14,7 @@ from typing import List
 from app.db.session import get_db
 from app.db.queries import datasources as ds_queries
 from app.config import settings
+from app.auth import AuthenticatedPrincipal, ensure_datasource_access, require_superuser, verify_api_key
 
 from shared import (
     Datasource,
@@ -42,18 +43,25 @@ async def get_datasources(
         description="Records per page"
     ),
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get datasources with optional filters.
     
     Datasources are the unified registry for data sources including devices, files, and APIs.
+    Restricted principals only see datasources they've been granted access to.
     """
+    datasource_ids = None if principal.is_superuser else list(principal.allowed_datasource_ids)
+    if datasource_ids is not None and not datasource_ids:
+        return PaginatedResponse(data=[], total=0, page=page, page_size=page_size, total_pages=0)
+
     datasources, total = ds_queries.get_datasources(
         db=db,
         data_type=data_type,
         source_category=source_category,
         status=status,
         site_id=site_id,
+        datasource_ids=datasource_ids,
         page=page,
         page_size=page_size
     )
@@ -68,7 +76,10 @@ async def get_datasources(
 
 
 @router.get("/types", response_model=List[DatasourceTypeCount])
-async def get_data_types(db: Session = Depends(get_db)):
+async def get_data_types(
+    db: Session = Depends(get_db),
+    _: AuthenticatedPrincipal = Depends(require_superuser),
+):
     """
     Get data types with counts.
     
@@ -78,7 +89,10 @@ async def get_data_types(db: Session = Depends(get_db)):
 
 
 @router.get("/categories")
-async def get_source_categories(db: Session = Depends(get_db)):
+async def get_source_categories(
+    db: Session = Depends(get_db),
+    _: AuthenticatedPrincipal = Depends(require_superuser),
+):
     """
     Get source categories with counts.
     
@@ -91,6 +105,7 @@ async def get_source_categories(db: Session = Depends(get_db)):
 async def get_datasource_by_external_id(
     external_id: str,
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get a datasource by its external ID.
@@ -99,6 +114,7 @@ async def get_datasource_by_external_id(
     
     if not datasource:
         raise HTTPException(status_code=404, detail="Datasource not found")
+    ensure_datasource_access(principal, datasource.id)
     
     return DatasourceRead.model_validate(datasource)
 
@@ -107,10 +123,13 @@ async def get_datasource_by_external_id(
 async def get_datasource(
     datasource_id: int,
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get a specific datasource by ID.
     """
+    ensure_datasource_access(principal, datasource_id)
+
     datasource = ds_queries.get_datasource_by_id(db, datasource_id)
     
     if not datasource:
@@ -127,6 +146,7 @@ async def get_datasource(
 async def create_datasource(
     payload: DatasourceCreate,
     db: Session = Depends(get_db),
+    _: AuthenticatedPrincipal = Depends(require_superuser),
 ):
     """
     Register a new datasource.
@@ -164,6 +184,7 @@ async def update_datasource(
     datasource_id: int,
     payload: DatasourceUpdate,
     db: Session = Depends(get_db),
+    _: AuthenticatedPrincipal = Depends(require_superuser),
 ):
     """
     Update mutable fields of a datasource (name, alias, description, status,
@@ -186,6 +207,7 @@ async def update_datasource(
 async def disable_datasource(
     datasource_id: int,
     db: Session = Depends(get_db),
+    _: AuthenticatedPrincipal = Depends(require_superuser),
 ):
     """
     Soft-delete: set the datasource status to 'offline'.
@@ -204,6 +226,7 @@ async def disable_datasource(
 async def purge_datasource(
     datasource_id: int,
     db: Session = Depends(get_db),
+    _: AuthenticatedPrincipal = Depends(require_superuser),
 ):
     """
     Hard-delete: permanently remove the datasource and ALL its data.

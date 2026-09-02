@@ -544,3 +544,55 @@ class TruckMilkDeliveryRead(TruckMilkDeliveryBase):
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+# =============================================================================
+# API Principal Schemas
+# =============================================================================
+
+class ApiPrincipalBase(BaseModel):
+    """Base schema for an API principal."""
+    name: str
+    description: Optional[str] = None
+    status: str = "active"
+    is_superuser: bool = False
+
+
+class ApiPrincipalCreate(ApiPrincipalBase):
+    """Schema for creating a principal."""
+    pass
+
+
+class ApiPrincipalUpdate(BaseModel):
+    """Schema for updating a principal."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ApiPrincipalRead(ApiPrincipalBase):
+    """Schema for reading a principal (never includes the API key)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ApiPrincipalCreateResponse(ApiPrincipalRead):
+    """Returned only once, at creation time, with the plaintext API key."""
+    api_key: str = Field(..., description="Plaintext API key - shown only once, store it securely")
+
+
+class DatasourceAccessGrant(BaseModel):
+    """Request body for granting datasource access to a principal."""
+    datasource_id: int
+
+
+class DatasourceAccessRead(BaseModel):
+    """A single datasource access grant."""
+    model_config = ConfigDict(from_attributes=True)
+
+    datasource_id: int
+    granted_at: Optional[datetime] = None
+    granted_by: Optional[int] = None

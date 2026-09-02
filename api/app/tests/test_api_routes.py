@@ -8,6 +8,7 @@ from uuid import UUID
 
 import pytest
 
+from app import auth
 from app.routers import (
     batches,
     dairy,
@@ -260,8 +261,14 @@ def test_health_reports_degraded_when_database_is_down(client, monkeypatch):
     }
 
 
-def test_data_routes_require_api_key(client):
-    assert client.get("/api/v1/energy/stats").status_code == 403
+def test_data_routes_require_api_key(client, monkeypatch):
+    monkeypatch.setattr(
+        auth.principal_queries,
+        "get_principal_by_api_key_hash",
+        lambda session, api_key_hash: None,
+    )
+
+    assert client.get("/api/v1/energy/stats").status_code == 401
     assert client.get("/api/v1/energy/stats", headers={"X-API-Key": "wrong"}).status_code == 403
 
 

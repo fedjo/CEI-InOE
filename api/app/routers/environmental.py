@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.queries import environmental as env_queries
 from app.config import settings
+from app.auth import AuthenticatedPrincipal, ensure_datasource_access, verify_api_key
 
 from shared import EnvironmentalMetricsRead, PaginatedResponse
 
@@ -27,12 +28,15 @@ async def get_environmental_metrics(
         description="Records per page"
     ),
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get environmental metrics records.
     
     Returns paginated environmental data.
     """
+    ensure_datasource_access(principal, datasource_id)
+
     if start_date > end_date:
         raise HTTPException(
             status_code=400, 
@@ -62,10 +66,13 @@ async def get_environmental_metrics(
 async def get_latest_environmental(
     datasource_id: int = Query(..., description="Filter by datasource ID"),
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get the most recent environmental reading.
     """
+    ensure_datasource_access(principal, datasource_id)
+
     record = env_queries.get_latest(db, datasource_id)
     
     if not record:
@@ -75,10 +82,16 @@ async def get_latest_environmental(
 
 
 @router.get("/stats")
-async def get_environmental_stats(db: Session = Depends(get_db)):
+async def get_environmental_stats(
+    db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
+):
     """
     Get environmental data statistics.
     
     Returns counts, date ranges, and averages.
     """
+    if not principal.is_superuser:
+        raise HTTPException(status_code=403, detail="Not available for restricted principals")
+
     return env_queries.get_stats(db)

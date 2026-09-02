@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.queries import solar as solar_queries
 from app.config import settings
+from app.auth import AuthenticatedPrincipal, ensure_datasource_access, verify_api_key
 
 from shared import SolarHourlyRead, SolarDailyRead, SolarMonthlyRead, PaginatedResponse
 
@@ -26,12 +27,15 @@ async def get_hourly_solar(
         description="Records per page"
     ),
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get hourly solar/PV generation records.
     
     Returns paginated hourly solar data.
     """
+    ensure_datasource_access(principal, datasource_id)
+
     if start_date > end_date:
         raise HTTPException(
             status_code=400, 
@@ -69,12 +73,15 @@ async def get_daily_solar(
         description="Records per page"
     ),
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get daily solar/PV generation records.
     
     Returns paginated daily solar data.
     """
+    ensure_datasource_access(principal, datasource_id)
+
     if start_date > end_date:
         raise HTTPException(
             status_code=400, 
@@ -112,12 +119,15 @@ async def get_monthly_solar(
         description="Records per page"
     ),
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get monthly solar/PV generation records.
     
     Returns paginated monthly solar data.
     """
+    ensure_datasource_access(principal, datasource_id)
+
     if start_date > end_date:
         raise HTTPException(
             status_code=400, 
@@ -146,10 +156,13 @@ async def get_monthly_solar(
 async def get_latest_solar(
     datasource_id: int = Query(..., description="Filter by datasource ID"),
     db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
 ):
     """
     Get the most recent hourly solar reading.
     """
+    ensure_datasource_access(principal, datasource_id)
+
     record = solar_queries.get_latest_hourly(db, datasource_id)
     
     if not record:
@@ -159,10 +172,16 @@ async def get_latest_solar(
 
 
 @router.get("/stats")
-async def get_solar_stats(db: Session = Depends(get_db)):
+async def get_solar_stats(
+    db: Session = Depends(get_db),
+    principal: AuthenticatedPrincipal = Depends(verify_api_key),
+):
     """
     Get solar data statistics.
     
     Returns counts, date ranges, and datasource counts.
     """
+    if not principal.is_superuser:
+        raise HTTPException(status_code=403, detail="Not available for restricted principals")
+
     return solar_queries.get_stats(db)

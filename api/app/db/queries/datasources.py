@@ -35,11 +35,16 @@ def get_datasources(
     source_category: str | None = None,
     status: str | None = None,
     site_id: int | None = None,
+    datasource_ids: list[int] | None = None,
     page: int = 1,
     page_size: int = 100
 ) -> tuple[list[Datasource], int]:
     """
     Get datasources with optional filters.
+
+    Args:
+        datasource_ids: If provided, restrict results to these IDs (used to
+            scope results to a principal's allowed datasources).
     
     Returns:
         Tuple of (datasource_list, total_count)
@@ -57,6 +62,9 @@ def get_datasources(
 
     if site_id is not None:
         query = query.filter(Datasource.site_id == site_id)
+
+    if datasource_ids is not None:
+        query = query.filter(Datasource.id.in_(datasource_ids))
     
     # Get total count
     total = query.count()
